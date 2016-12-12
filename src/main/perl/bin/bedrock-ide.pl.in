@@ -1,0 +1,681 @@
+#!@perlrun@
+
+# RESTful API to support Bedrock IDE
+
+use strict;
+use warnings;
+
+BEGIN {
+  use lib '@bedrock_perl5libdir@';
+}
+
+
+# See Log::Log4perl FAQ -
+# http://log4perl.sourceforge.net/releases/Log-Log4perl/docs/html/Log/Log4perl/FAQ.html#e95ee
+#
+# HTTP::Server::Simple does not do anything special with STDERR.
+# Since we have forked using the ->background() method it would be up
+# the child (our listening server) to close STDERR and then reopen to
+# maybe, say, a log file? Since we're using Log::Log4perl to do our
+# logging here we'll take the advice of the FAQ above and tie *STDERR
+# to our class in the post_setup_hook().  Since the post_setup_hook()
+# is called for each request we probably only need to tie STDERR when
+# we get the first request.
+#
+
+package Trapper;
+
+use Log::Log4perl;
+
+sub TIEHANDLE {
+  my $class = shift;
+  bless [], $class;
+}
+    
+sub PRINT {
+  my $self = shift;
+
+  # we want the line number in the Bedrock::IDE that generated the output to STDERR
+  $Log::Log4perl::caller_depth++;
+  Log::Log4perl::get_logger()->error(@_);
+  $Log::Log4perl::caller_depth--;
+}
+
+package Bedrock::IDE;
+
+use parent qw/HTTP::Server::Simple::CGI/;
+
+my %dispatch = (
+		'GET'   . ' ' . '/list'   => \&list,
+
+		# /plugin
+		'GET'   . ' ' . '/plugin' => \&get_plugin,
+		'POST'  . ' ' . '/plugin' => \&post_plugin,
+		'PUT'   . ' ' . '/plugin' => \&put_plugin,
+		'DELETE'. ' ' . '/plugin' => \&delete_plugin,
+
+		# /file
+		'GET'   . ' ' . '/file'   => \&get_file,
+		'POST'  . ' ' . '/file'   => \&post_file,
+		'PUT'   . ' ' . '/file'   => \&post_file,
+		'DELETE'. ' ' . '/file'   => \&delete_file,
+
+		# /config
+		'GET'   . ' ' . '/config' => \&get_config,
+		'PUT'   . ' ' . '/config' => \&post_config,
+		'POST'  . ' ' . '/config' => \&post_config,
+		
+		# /plugin-config		
+		'GET'   . ' ' . '/plugin-config' => \&get_plugin_config,
+		'POST'  . ' ' . '/plugin-config' => \&post_plugin_config,
+		'PUT'   . ' ' . '/plugin-config' => \&post_plugin_config,
+		'DELETE'. ' ' . '/plugin-config' => \&delete_plugin_config,
+	       );
+
+sub handle_request {
+  my ($self, $cgi) = @_;
+
+  my $path = $cgi->path_info();
+
+  my $logger = Log::Log4perl::get_logger();
+  $logger->debug(sprintf("Handling %s request for %s", $cgi->request_method(), $path));
+  
+  my $api_path;
+  $api_path = $1 if $path =~/^(\/[^\/]*)\/?/;
+
+  my $route = $cgi->request_method() . ' ' . $api_path;
+  $logger->debug(sprintf("API: %s", $api_path));
+  $logger->debug(sprintf("Route: %s", $route));
+  
+  if ( exists $dispatch{$route} ) {
+    my $handler = $dispatch{$route};
+  
+    if (ref($handler) eq "CODE") {
+      my $result = eval {
+	$handler->($cgi, $path);
+      };
+      
+      if ( ref($result) ) {
+	print $result->{status} . "\r\n";
+	print "HTTP/1.0 200 OK\r\n";
+	print "Content-Type: application/json\n\n";
+	print to_json($result->{data}, { pretty => 1 });
+      }
+      else {
+	$logger->error("ERROR: $@");
+	print "HTTP/1.0 500 Internal Server Error\r\n";
+	print "Content-Type: text/plain\n\n";
+	print $@;
+      }
+    }
+  }
+  else {
+    print "HTTP/1.0 404 Not found\r\n";
+    print $cgi->header,
+      $cgi->start_html('Not found'),
+      $cgi->h1('Not found ' . $path),
+      $cgi->end_html;
+  }
+}
+
+sub post_setup_hook {
+  my $self = shift;
+  
+  $self->SUPER::post_setup_hook();
+  # only need to tie STDERR first time (see note above)
+  tied *STDERR || tie *STDERR, 'Trapper';
+}
+
+1;
+
+our $IDE_CONFIG;
+our $CONFIG;
+our $DOCUMENT_ROOT;
+our $CONFIG_PATH_ROOT;
+our $PLUGIN_PATH;
+our $PORT;
+
+# +---------+
+# | HELPERS |
+# +---------+
+
+sub _get_listing {
+  my $path = shift;
+  my $ext = shift || '';
+  
+  my $logger = Log::Log4perl::get_logger();
+  $logger->debug(sprintf("path: %s ext: %s", $path, $ext));
+  
+  my @file_list;
+
+  if ( -d $path ) {
+    opendir(my $dh, $path) || die "Can't opendir $path: $!";
+    while ( my $file = readdir $dh ) {
+      $logger->debug("$file");
+      
+      next if $file =~/^\.\.?$/ || ($ext && $file !~/\.$ext$/); 
+    
+      if ( -f $path . '/' . $file ) {
+	push @file_list, $file;
+      }
+      elsif (-d $path . '/' . $file ) {
+	push @file_list, { $file => [] };
+      }
+    }
+    closedir $dh;  
+  }
+  
+  return \@file_list;
+}
+
+sub _get_plugin_config_path {
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  $path =~s/^\/plugin\-config\///;
+
+  my $config_path = $CONFIG->{CONFIG_PATH_ROOT} || '@libdir@/bedrock';
+  $config_path = $config_path . '/config.d';
+  
+  $logger->debug("path: $path config_path: $config_path");
+  $path = lc($path);
+  
+  if ( -e "$config_path/startup/$path.xml") {
+    $config_path = "$config_path/startup/$path.xml";
+  }
+  elsif ( -e "$config_path/plugin/$path.xml") {
+    $config_path = "$config_path/plugin/$path.xml";
+  }
+  else {
+    undef $config_path;
+  }
+  
+  $config_path;
+}
+
+# - devolve a Bedrock object into Perl objects
+sub _devolve {
+  my $this = shift; 
+  if ( ref($this) && reftype($this) eq 'HASH' ) {
+    my $that = {};
+    foreach ( keys %$this ) {
+      $that->{$_} = _devolve( $this->{$_} );
+    }
+    return $that;
+  }
+  elsif ( ref($this) && reftype($this) eq 'ARRAY' ) {
+    my $that = [];
+    foreach (@$this) {
+      push @$that, _devolve($_);
+    }
+    return $that;
+  }
+  elsif (! ref($this)) {
+    return $this;
+  }
+  else {
+    return undef;
+  }
+}
+
+sub _set_result {
+  my ($result, $message) = @_;
+  
+  my $data = {
+	      status  => defined $result ? 'success' : 'error',
+	      message => $message,
+	      data    => $result
+	     };
+  
+  return { data => $data };
+}
+
+# +----------+
+# | Handlers |
+# +----------+
+
+# GET /config
+sub get_config {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  $logger->debug("$path");
+  
+  return _set_result(_devolve($CONFIG));
+}
+
+# POST/config
+sub post_config {
+  my $cgi = shift;
+  my $path = shift;
+
+  $path =~s/^\/config//;
+  
+  my $logger = Log::Log4perl::get_logger();
+  $logger->debug("$path");
+
+  my $config = $cgi->param('PUTDATA') || $cgi->param('POSTDATA');
+  
+  eval {
+    
+    if ( $config && $cgi->content_type() =~/application\/json/ ) {
+      $logger->debug($config);
+      $config = from_json($config);
+      $logger->debug(Dumper([$config]));
+    }
+    else {
+      die "no content or invalid content type: must be application/json\n";
+    }
+  
+    foreach (qw/DOCUMENT_ROOT CONFIG_PATH_ROOT PLUGIN_PATH PERL5LIB PORT/) {
+      unless ( exists $config->{$_} ) {
+	$logger->error("missing config variable $_");
+	die "missing config variable $_";
+      }
+    
+      if ( $_ !~/(PORT|PERL5LIB)/ ) {
+	unless ( -d $config->{$_} ) {
+	  die "$_: " . $config->{$_} . " does not exist";
+	}
+      }
+      elsif ($_ eq 'PORT') {
+	die "invalid port" unless $PORT =~/^\d{4,5}$/;
+      }
+      elsif ($_ eq 'PERL5LIB') {
+	foreach (split ':', $config->{$_}) {
+	  unless ( -d $_ ) {
+	    die "PERL5LIB: " . $_ . " does not exist";
+	  }
+	}
+      }
+      else {
+	die "invalid configuration variable $_";
+      }
+    }
+    
+    if ( -d $config->{DOCUMENT_ROOT} eq '/' ) {
+      die "DOCUMENT_ROOT cannot be /";
+    }
+  
+    $CONFIG = $config;
+  
+    $IDE_CONFIG->{'bedrock-ide'} = $config;
+  
+    move('@libdir@/bedrock-ide/config/bedrock-ide.xml', '@libdir@/bedrock-ide/config/bedrock-ide.xml~');
+
+    Bedrock::XML::writeXML($IDE_CONFIG, '@libdir@/bedrock-ide/config/bedrock-ide.xml');
+  };
+  
+  return _set_result($@ ? undef : $config, $@);
+}
+
+# DELETE /plugin/config
+sub delete_plugin_config {
+  my $cgi = shift;
+  my $path = shift;
+  
+  my $config_path = _get_plugin_config_path($path);
+
+  die "no plugin [$path]\n"
+    unless $config_path;
+
+  unlink($config_path);
+  
+  return _set_result({});
+}
+
+# GET /plugin/config
+sub get_plugin_config {
+  my $cgi = shift;
+  my $path = shift;
+  
+  my $config_path = _get_plugin_config_path($path);
+
+  die "no plugin [$path]\n"
+    unless $config_path;
+  
+  my $config = Bedrock::XML->new($config_path);
+  
+  return _set_result(_devolve($config));
+}
+
+# POST /plugin/config
+sub post_plugin_config {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  my $config = $cgi->param('PUTDATA') || $cgi->param('POSTDATA');
+  my $config_path = _get_plugin_config_path($path);
+  
+  $logger->debug(sprintf("path: %s config: %s", $config_path, $config));
+  
+  die "no plugin [$path]\n"
+    unless $config_path;
+  
+  $config = from_json($config);
+  $logger->debug(Dumper([$config]));
+  
+  if ( ref($config) && reftype($config) eq 'HASH' ) {
+    Bedrock::XML::writeXML($config, $config_path);
+  }
+  
+  return _set_result($config);
+}
+
+# GET /plugin
+sub get_plugin {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  $path =~s/^\/plugin//;
+  my $data;
+
+  my $plugin_path = $CONFIG->{PLUGIN_PATH} || '@libdir@/bedrock/perl5';
+
+  eval {
+    my $plugin_list;
+    
+    if ( ! $path || $path eq '/' ) {
+      $plugin_list = _get_listing($plugin_path . "/BLM/Startup", 'pm');
+      # remove suffix
+      $plugin_list = [ map { s/\.pm$//; $_; } @{$plugin_list} ];
+      $data = $plugin_list;
+    }
+    else {
+      $path = $plugin_path .  '/BLM/Startup/' . $path . '.pm';
+      
+      open (my $fh, "<$path") or die "could not open $path";
+      local $/;
+      $data = <$fh>;
+      close $fh;
+      $logger->debug($data);
+    }
+  };
+  
+  return _set_result($@ ? undef : $data, $@);
+}
+
+# PUT /plugin
+sub put_plugin {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  $path =~s/^\/plugin//;
+  
+  my $plugin_path = $CONFIG->{PLUGIN_PATH} || '@libdir@/bedrock/perl5';
+  $path = $plugin_path .  '/BLM/Startup/' . $path . '.pm';
+  
+  eval {
+    # save the original
+    move($path, $path . "~") if -e $path;
+    $logger->debug("path: $path");
+
+    open (my $fh, ">$path") or die "could not write [$path]";
+    $fh->print($cgi->param('PUTDATA'));
+    $fh->close;
+  
+    $logger->debug("path: $path");
+  
+    if ( -e $path ) {
+      my $perl5lib = '';
+    
+      if ( $CONFIG->{PERL5LIB} ) {
+	$perl5lib = '-I ' . join(' -I ', split ':', $CONFIG->{PERL5LIB});
+      }
+      else {
+	$perl5lib = '-I @bedrockdir@/lib/bedrock/perl5';
+      }
+    
+      $logger->debug("perl5lib: $perl5lib");
+    
+      my $err_code;
+      my ($in, $out, $err);
+    
+      eval {
+	my $cmd = '@perlrun@' . " -wc $perl5lib $path";
+      
+	$logger->debug($cmd);
+      
+	untie *STDERR;
+	$SIG{CHLD} = 'DEFAULT';
+	run3($cmd, \$in, \$out, \$err);
+	$err_code = $?;
+	tie *STDERR, 'Trapper';
+      
+	if ( $err_code ) {
+	  $logger->debug("err_code: $err_code [$!] [$err] [$out]");
+	}
+	else {
+	  $logger->debug("stdout: [$out] stderr: [$err]");
+	}
+      
+	$SIG{CHLD} = 'IGNORE';
+      };
+    
+      if ( $err_code || $@ ) {
+	# restore last known good file...
+	move($path . "~", $path) if -e $path . '~';
+	die $@ || $err;
+      }
+    }
+  };
+  
+  return _set_result($@ ? undef : $path, $@);
+}
+
+# POST /plugin
+sub post_plugin {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  $path =~s/^\/plugin//;
+  my $config_path = $CONFIG->{CONFIG_PATH_ROOT} || '@libdir@/bedrock';
+  my $plugin_path = $CONFIG->{PLUGIN_PATH} || '@libdir@/bedrock/perl5';
+  
+  my $result = {
+		status => 'HTTP/1.0 200 OK',
+		content_type => 'text/plain'
+	       };
+  
+  my $plugin = $cgi->param('plugin');
+  my $binding = $cgi->param('binding') || lc($plugin);
+  
+  if ( $plugin && $binding ) {
+    $logger->debug(sprintf("plugin: %s binding: %s", $plugin, $binding));
+    `@bindir@/bedrock-plugin -x -r -d $plugin_path -c $config_path -m $plugin -b $binding`;
+    $plugin = "$plugin_path/BLM/Startup/${plugin}.pm";
+    open (my $fh, "<$plugin") or die "could not create plugin [$plugin]";
+    local $/;
+    $result->{data} = <$fh>;
+    close $fh;
+  }
+  else {
+    die "module and binding must be provided\n";
+  }
+
+  return _set_result($@ ? undef : $path, $@);
+}
+
+# DELETE /plugin
+sub delete_plugin {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  my $config_path = _get_plugin_config_path($path);
+
+  $path =~s/^\/plugin//;
+
+  my $plugin_path = $CONFIG->{PLUGIN_PATH} || '@libdir@/bedrock/perl5';
+  $path = $plugin_path .  '/BLM/Startup/' . $path . '.pm';
+
+  unlink $path if -e $path;
+  unlink $config_path if -e $config_path;
+
+  return _set_result($@ ? undef : $path, $@);
+}
+
+# GET /file
+sub get_file {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  my $DOCUMENT_ROOT = $CONFIG->{DOCUMENT_ROOT};
+  
+  $path =~s/^\/file//;
+  $path = $DOCUMENT_ROOT . $path;
+
+  $logger->debug("$path");
+  
+  my $text;
+
+  eval {
+    open (my $fh, "<$path") or die "could not open file [$path]";
+    local $/;
+    $text = <$fh>;
+    close $fh;
+  };
+    
+  return _set_result($@ ? undef : $text, $@);
+}
+
+# POST /file
+sub post_file {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  my $text = $cgi->param('POSTDATA') || $cgi->param('PUTDATA');
+  
+  my $DOCUMENT_ROOT = $CONFIG->{DOCUMENT_ROOT};
+  
+  $path =~s/^\/file//;
+  $path = $DOCUMENT_ROOT . $path;
+
+  $logger->debug("path: [$path]");
+  $logger->debug("text: [$text]");
+  
+  eval {
+    open (my $fh, ">$path") or die "could not open file [$path]";
+    $fh->print($text);
+    close $fh;
+  };
+    
+  return _set_result($@ ? undef : $text, $@);
+}
+
+# DELETE /file
+sub delete_file {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  my $DOCUMENT_ROOT = $CONFIG->{DOCUMENT_ROOT};
+  
+  $path =~s/^\/file//;
+  $path = $DOCUMENT_ROOT . $path;
+
+  $logger->debug("$path");
+
+  if ( -e $path ) {
+    unlink $path;
+  }
+  
+  return _set_result($@ ? undef : $path, $@);
+}
+
+# GET /list
+sub list {
+  my $cgi = shift;
+  my $path = shift;
+
+  my $logger = Log::Log4perl::get_logger();
+  
+  my $DOCUMENT_ROOT = $CONFIG->{DOCUMENT_ROOT};
+  
+  $path =~s/^\/list//;
+  $path = $DOCUMENT_ROOT . $path;
+
+  my $listing = eval {
+    _get_listing($path, $cgi->param('ext'));
+  };
+  
+  $logger->debug(Dumper($listing));
+  
+  return _set_result($@ ? undef : $listing, $@);
+}
+
+
+# +--------------------------+
+# | MAIN PROGRAM STARTS HERE |
+# +--------------------------+
+
+use Bedrock;
+use Bedrock::Array;
+use Bedrock::Hash;
+use Bedrock::Template;
+use Bedrock::XML;
+
+use Data::Dumper;
+use File::Copy;
+use File::Path qw/make_path/;
+use File::Temp qw/tempfile/;
+use IPC::Run3;
+use JSON;
+use Log::Log4perl;
+use Scalar::Util qw/reftype/;
+
+$IDE_CONFIG = Bedrock::XML->new('@libdir@/bedrock-ide/config/bedrock-ide.xml' );
+$CONFIG = $IDE_CONFIG->{'bedrock-ide'}; # user modifiable configuration
+
+$DOCUMENT_ROOT = $CONFIG->{DOCUMENT_ROOT} || '/var/www/html';
+$CONFIG_PATH_ROOT = $CONFIG->{config_path} || '/var/www';
+$PLUGIN_PATH = $CONFIG->{PLUGIN_PATH};
+
+$PORT = $IDE_CONFIG->{port} || '8080';
+my $PID_FILE = $IDE_CONFIG->{pidfile} || '/var/run/bedrock-ide.pid';
+
+my $tagx;
+
+if ( -e "$CONFIG_PATH_ROOT/config/tagx.xml" ) {
+  $tagx = Bedrock::XML->new("$CONFIG_PATH_ROOT/config/tagx.xml");
+}
+
+my %log4perl = %{$IDE_CONFIG->{log4perl}};
+Log::Log4perl->init(\%log4perl);
+my $logger = Log::Log4perl->get_logger();
+
+unless ( -d $PLUGIN_PATH . '/BLM/Startup' ) {
+  $logger->info("warning: $PLUGIN_PATH/BLM/Startup does not exists. Creating $PLUGIN_PATH");
+  make_path($PLUGIN_PATH . '/BLM/Startup' );
+}
+
+$logger->info(sprintf("Starting Bedrock IDE..."));
+$logger->info(sprintf("Listenting on port.....[%s]", $PORT));
+$logger->info(sprintf("CONFIG_PATH_ROOT.......[%s]", $CONFIG_PATH_ROOT));
+$logger->info(sprintf("DOCUMENT_ROOT..........[%s]", $DOCUMENT_ROOT));
+$logger->info(sprintf("PLUGIN_PATH............[%s]", $PLUGIN_PATH));
+$logger->info(sprintf("PID file...............[%s]", $PID_FILE));
+
+my $pid = Bedrock::IDE->new($PORT)->background(log_file => 'Log::Log4perl');
+
+open (my $fh, ">$PID_FILE") or die "could not create pid file.";
+print $fh $pid;
+close $fh;
+
+exit 0;

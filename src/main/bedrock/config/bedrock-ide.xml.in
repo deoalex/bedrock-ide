@@ -1,0 +1,22 @@
+<object>
+  <!-- things users probably should not change -->
+  <object name="log4perl">
+    <scalar name="log4perl.rootLogger">DEBUG, LOGFILE</scalar>
+    <scalar name="log4perl.appender.LOGFILE">Log::Log4perl::Appender::File</scalar>
+    <scalar name="log4perl.appender.LOGFILE.filename">/var/log/httpd/bedrock-ide.log</scalar>
+    <scalar name="log4perl.appender.LOGFILE.mode">append</scalar>
+    <scalar name="log4perl.appender.LOGFILE.layout">PatternLayout</scalar>
+    <scalar name="log4perl.appender.LOGFILE.layout.ConversionPattern">%H %d [%P] - %F %M %L - %m%n</scalar>
+  </object>
+  
+  <!-- things users can change -->
+  <object name="bedrock-ide">
+    <scalar name="PERL5LIB">@bedrockdir@/lib/bedrock/perl5</scalar>
+    <scalar name="PLUGIN_PATH">@bedrockdir@/lib/bedrock/perl5</scalar>
+    <scalar name="CONFIG_PATH_ROOT">@bedrockdir@/lib/bedrock</scalar>
+    <scalar name="PORT">8080</scalar>
+    <scalar name="DOCUMENT_ROOT">/var/www/html</scalar>
+    <scalar name="HOST_NAME"></scalar>
+    <scalar name="INDEX_PAGE">index.roc</scalar>
+  </object>
+</object>

@@ -1,0 +1,75 @@
+%define name		@PACKAGE@
+%define release	 	@RELEASE@	
+%define project_version @VERSION@
+%define buildroot %{_tmppath}/%{name}-%{version}-%{release}-%(%{__id_u} -n)
+
+Provides: @PACKAGE_NAME@
+
+%define project_base @PACKAGE_NAME@
+
+Name:     %{project_base}
+Version:  %(echo @VERSION@ | awk -F- '{print $1}')
+Release:  %{release}
+Vendor:   www.openbedrock.net
+Source:   %{project_base}-%{project_version}.tar.gz
+
+BuildRoot:	%{buildroot}
+Summary: 	Bedrock	IDE
+License: 	GPL
+Prefix: 	/usr
+Group: 		Development/Tools
+
+Requires:       bedrock
+Requires:       perl(HTTP::Server::Simple)
+
+BuildArch:      noarch
+
+%define pkgname %{project_base}-%{project_version}
+%define _prefix         %{prefix}
+%define _sysconfdir     /etc
+%define _datadir        %{_prefix}/share
+%define _localstatedir  /var
+%define _mandir         %{_prefix}/man
+%define _infodir        %{_prefix}/info
+%define _libdir         %{_prefix}/lib
+%define _bindir         %{_prefix}/bin
+%define _libexecdir     %{_prefix}/libexec
+%define _sbindir        %{_prefix}/sbin
+%define _includedir     %{_prefix}/include
+
+%description
+bedrock-ide is a web development environment written in
+Perl for use with the Bedrock Web Framework.  For more information
+visit: http://www.openbedrock.net
+
+%prep
+%setup -q -n %{pkgname}
+
+%build
+%{configure} --with-apache-layout=RedHat \
+             --with-perl-includes=/usr/lib/bedrock/perl5:/usr/lib/bedrock/perl5/Bedrock
+make
+
+%install
+rm -rf %{buildroot}
+DONT_STRIP=1 make DESTDIR=%{buildroot} install
+
+mkdir -p %{buildroot}%{_libdir}/bedrock/config.d
+
+%post
+
+[ -d /etc/httpd/conf.d ] && cp %{_libdir}/bedrock-ide/config/perl_bedrock-ide.conf /etc/httpd/conf.d/
+
+%clean
+rm -rf %{buildroot}
+
+%files
+
+%defattr(-,root,root)
+
+%{_datadir}/doc
+%{_datadir}/bedrock-ide
+%{_libdir}/bedrock-ide
+%{_libexecdir}/bedrock-ide.pl
+%{_sysconfdir}/init.d/bedrock-ided
+%{_mandir}

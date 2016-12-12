@@ -1,0 +1,53 @@
+ProxyPassMatch /bedrock-ide/api/(.*)$ http://localhost:8080/$1
+
+Alias /bedrock-ide/img @datadir@/bedrock-ide/img
+
+<Directory @datadir@/bedrock-ide/img>
+  Order allow,deny
+  Allow from all
+</Directory>
+
+Alias /bedrock-ide/css @datadir@/bedrock-ide/css
+
+<Directory @datadir@/bedrock-ide/css>
+  Order allow,deny
+  Allow from all
+</Directory>
+
+Alias /bedrock-ide/fonts @datadir@/bedrock-ide/fonts
+
+<Directory @datadir@/bedrock-ide/fonts>
+  Order allow,deny
+  Allow from all
+</Directory>
+
+Alias /bedrock-ide/javascript @datadir@/bedrock-ide/javascript
+
+<Directory @datadir@/bedrock-ide/javascript>
+  Order allow,deny
+  Allow from all
+</Directory>
+
+Alias /bedrock-ide/include @datadir@/bedrock-ide/include
+
+<Directory @datadir@/bedrock-ide/include>
+  Order allow,deny
+  Allow from all
+</Directory>
+
+Alias /bedrock-ide @datadir@/bedrock-ide/htdocs
+
+<Directory @datadir@/bedrock-ide/htdocs>
+   AcceptPathInfo On
+   DirectorySlash Off
+   Options -Indexes
+
+   Order allow,deny
+   Allow from all
+
+   AuthType Basic
+   AuthName Bedrock
+   AuthUserFile @bedrockdir@/lib/bedrock/config/bedrock.users
+   require valid-user
+</Directory>
+
