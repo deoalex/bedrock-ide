@@ -211,3 +211,27 @@ configuration changes.*
 
 You send a JSON object that contains **ALL* of the configuration
 values listed above.  If not, you'll get an error.
+
+### /tag
+
+*Returns a list of tags or the tag documentation.*
+
+`GET /tag`
+
+*Returns an array of tag names.*
+
+`GET /tag/{tag-name}`
+
+*Returns the HTML documentation for a tag.*
+
+### /plugin-doc
+
+*Returns a list of plugins or the plugin documentation.*
+
+`GET /plugin-doc`
+
+*Returns a list of plugins.*
+
+`GET /plugin-doc/{plugin-name}`
+
+*Returns the HTML documentation of a tag.*
