@@ -320,6 +320,7 @@ AC_CONFIG_FILES(
         [src/main/bedrock/javascript/Makefile]
         [src/main/perl/Makefile]
         [src/main/perl/bin/Makefile]
+        [src/main/perl/lib/Makefile]
         [src/main/bash/Makefile]
         [src/main/bash/bin/Makefile]
 )
