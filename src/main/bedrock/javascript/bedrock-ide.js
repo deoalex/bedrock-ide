@@ -46,7 +46,19 @@ $(function() {
     $('#toolbar-info').click(function() {
 	alert("info");
     });
-    
+
+    $('#toolbar-delete').click(function() {
+	var class_name = $('#path').attr('class');
+	var file_name = $('#path').val();
+	
+	if ( class_name == 'bedrock-script' ) {
+	    delete_file(file_name);
+	}
+	else {
+	    delete_plugin(file_name);
+	}
+    });
+			      
 });
 
 function trim(val){
@@ -114,6 +126,30 @@ function flash_screen(color) {
     setTimeout(function(){
 	$('#bedrock-text').css({'background-color' : bgcolor });
     }, 750);
+}
+
+function delete_file(file_name) {
+    if ( confirm("Are you sure you want to delete " + file_name + "?") ) {
+        $.ajax({
+	    url: '/bedrock-ide/api/file/' + file_name,
+	    method: 'DELETE',
+	    success: function(data) {
+		if ( data.status == 'success' ) {
+		    flash_screen();
+		    list('');
+		}
+		else {
+		    show_error(data.message);
+		}
+	    },
+	    error: function() {
+		flash_screen('red');
+	    }
+	});
+    }
+    else {
+	return false;
+    }
 }
 
 function save_config() {
