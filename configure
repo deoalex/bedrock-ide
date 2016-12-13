@@ -5503,7 +5503,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files ${PACKAGE_NAME}.spec Makefile src/Makefile src/main/Makefile src/main/bedrock/Makefile src/main/bedrock/css/Makefile src/main/bedrock/htdocs/Makefile src/main/bedrock/config/Makefile src/main/bedrock/javascript/Makefile src/main/perl/Makefile src/main/perl/bin/Makefile src/main/bash/Makefile src/main/bash/bin/Makefile"
+ac_config_files="$ac_config_files ${PACKAGE_NAME}.spec Makefile src/Makefile src/main/Makefile src/main/bedrock/Makefile src/main/bedrock/css/Makefile src/main/bedrock/htdocs/Makefile src/main/bedrock/config/Makefile src/main/bedrock/javascript/Makefile src/main/perl/Makefile src/main/perl/bin/Makefile src/main/perl/lib/Makefile src/main/bash/Makefile src/main/bash/bin/Makefile"
 
 
 cat >confcache <<\_ACEOF
@@ -6150,6 +6150,7 @@ do
     "src/main/bedrock/javascript/Makefile") CONFIG_FILES="$CONFIG_FILES src/main/bedrock/javascript/Makefile" ;;
     "src/main/perl/Makefile") CONFIG_FILES="$CONFIG_FILES src/main/perl/Makefile" ;;
     "src/main/perl/bin/Makefile") CONFIG_FILES="$CONFIG_FILES src/main/perl/bin/Makefile" ;;
+    "src/main/perl/lib/Makefile") CONFIG_FILES="$CONFIG_FILES src/main/perl/lib/Makefile" ;;
     "src/main/bash/Makefile") CONFIG_FILES="$CONFIG_FILES src/main/bash/Makefile" ;;
     "src/main/bash/bin/Makefile") CONFIG_FILES="$CONFIG_FILES src/main/bash/bin/Makefile" ;;
 
