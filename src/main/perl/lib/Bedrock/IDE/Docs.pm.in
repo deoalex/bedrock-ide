@@ -1,0 +1,162 @@
+#!/usr/bin/perl
+
+package Bedrock::IDE::Docs;
+
+use strict;
+use warnings;
+
+use parent qw/Class::Accessor::Fast/;
+
+Bedrock::IDE::Docs->mk_accessors(qw/css_url plugin_path/);
+  
+use Bedrock;
+use Data::Dumper;
+use File::Spec;
+use File::Temp qw/tempfile/;
+use Pod::Html;
+use Scalar::Util qw/reftype/;
+use Text::TagX;
+
+sub get_modules {
+  my $dir = shift;
+  my $no_blms = shift;
+
+  my @listing;
+
+  return () unless -d $dir;
+
+  local *POD_DIR;
+  opendir POD_DIR, $dir;
+
+  while ( my $file = readdir POD_DIR ) {
+    next if ( $file =~ /^\./ );
+
+    next if $no_blms && $file =~/blm/i && grep { /$dir/ } @INC;
+
+    if ( -d $dir . "/" . $file ) {
+      push @listing, get_modules( $dir . "/" . $file );
+    }
+    else {
+      push @listing, $dir . "/" . $1 if ( $file =~ /^(.*?)\.pm$/ );
+    }
+  }
+
+  closedir POD_DIR;
+
+  return @listing;
+}
+
+sub get_all_modules {
+  my $paths = shift;
+  my $public_only = shift;
+  my $no_blms = shift;
+
+  my @module_listing;
+  my %module_map;
+
+  foreach my $path ( @$paths ) {
+    my $dir;
+    my $filter;
+
+    if ( ref($path) && reftype($path) eq 'HASH' ) {
+      $dir = $path->{dir};
+      $filter = $path->{filter};
+    }
+    else {
+      $dir = $path;
+    }
+
+    my @modules = get_modules( $dir, $no_blms );
+
+    foreach my $file ( @modules ) {
+      
+      my $module = $file;
+      $module =~s/$dir\///;
+      $module =~s/\//::/g;
+
+      $filter = qr/$filter/ 
+	if $filter;
+
+      next if $filter && $module !~ $filter;
+      
+      $module_map{$module} = $file;
+    }
+
+    push @module_listing, @modules;
+  }
+  
+  local *POD;
+
+  foreach my $module ( keys %module_map) {
+    open POD, "<" . $module_map{$module} . ".pm" or next;
+    local $/;
+
+    my $source = <POD>;
+
+    if ( $source =~ /\=(pod|head1)/si ) {
+      delete $module_map{$module}
+	unless ($source =~ /\=head1\s+public/si || ! $public_only );
+    }
+    else {
+      delete $module_map{$module};
+    }
+
+    close POD;
+  }
+
+  return \%module_map;
+}
+
+=pod
+
+=head2 get_all_blms
+
+=cut
+
+sub get_plugin_listing {
+  my $self = shift;
+  
+  get_all_modules( [ $self->plugin_path . '/BLM'], 1);
+}
+
+sub tags {
+  $Text::TagX::Opentag_expr =~ /^\^\((.*?)\)/;
+  
+  my @tag_listing = split /\|/, $1;
+  @tag_listing = map { !/(\#|else|else\?if|blm|\?)/ ? $_ : ()  } sort @tag_listing;
+
+  return \@tag_listing;
+}
+
+sub pod {
+  my $self = shift;
+  my $file = shift;
+
+  my (undef, $outfile) = tempfile();
+  
+  my %options = (
+		 '--infile'   => $file,
+		 '--outfile'  => $outfile,
+		 '--cachedir' => File::Spec->tmpdir(),
+		 '--css'      => $self->css_url()
+		);
+
+  &pod2html(%options);
+
+  my $data;
+
+  if ( -s "$outfile" > 600 ) {
+    open( FILE, "$outfile" ) or die "Unable to open $outfile: $!\n";
+    local $/ = undef;
+    $data = <FILE>;
+    close FILE;
+  }
+  
+  if ( $data =~ /<body>(.*?)<\/body>/s ) {
+    $data = $1;
+  }
+  
+  return $data;
+}
+
+1;

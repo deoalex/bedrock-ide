@@ -1,0 +1,33 @@
+
+package Bedrock::IDE::Trapper;
+
+# See Log::Log4perl FAQ -
+# http://log4perl.sourceforge.net/releases/Log-Log4perl/docs/html/Log/Log4perl/FAQ.html#e95ee
+#
+# HTTP::Server::Simple does not do anything special with STDERR.
+# Since we have forked using the ->background() method it would be up
+# the child (our listening server) to close STDERR and then reopen to
+# maybe, say, a log file? Since we're using Log::Log4perl to do our
+# logging here we'll take the advice of the FAQ above and tie *STDERR
+# to our class in the post_setup_hook().  Since the post_setup_hook()
+# is called for each request we probably only need to tie STDERR when
+# we get the first request.
+#
+
+use Log::Log4perl;
+
+sub TIEHANDLE {
+  my $class = shift;
+  bless [], $class;
+}
+    
+sub PRINT {
+  my $self = shift;
+
+  # we want the line number in the Bedrock::IDE that generated the output to STDERR
+  $Log::Log4perl::caller_depth++;
+  Log::Log4perl::get_logger()->error(@_);
+  $Log::Log4perl::caller_depth--;
+}
+
+1;

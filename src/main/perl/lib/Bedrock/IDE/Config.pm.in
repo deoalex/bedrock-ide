@@ -1,0 +1,36 @@
+package Bedrock::IDE::Config;
+
+our $IDE_CONFIG;
+our $CONFIG;
+our $DOCUMENT_ROOT;
+our $CONFIG_PATH_ROOT;
+our $PORT;
+our $PLUGIN_PATH;
+our $PID_FILE;
+our $INDEX_PAGE;
+our $PERL5LIB;
+our $TAGX;
+
+use Bedrock::XML;
+use parent qw/Exporter/;
+use vars qw/@EXPORT_OK/;
+
+@EXPORT_OK = qw/$IDE_CONFIG $CONFIG $DOCUMENT_ROOT $CONFIG_PATH_ROOT $PORT $PLUGIN_PATH $INDEX_PAGE $PID_FILE $PERL5LIB $TAGX/;
+
+$IDE_CONFIG = Bedrock::XML->new('@libdir@/bedrock-ide/config/bedrock-ide.xml' );
+$CONFIG = $IDE_CONFIG->{'bedrock-ide'}; # user modifiable configuration
+
+$DOCUMENT_ROOT = $CONFIG->{DOCUMENT_ROOT} || '/var/www/html';
+$CONFIG_PATH_ROOT = $CONFIG->{config_path} || '/var/www';
+$PLUGIN_PATH = $CONFIG->{PLUGIN_PATH};
+$INDEX_PATE = $CONFIG->{INDEX_PAGE};
+
+$PORT = $IDE_CONFIG->{port} || '8080';
+$PID_FILE = $IDE_CONFIG->{pidfile} || '/var/run/bedrock-ide.pid';
+$PERL5LIB = $IDE_CONFIG->{PERL5LIB};
+
+if ( -e "$CONFIG_PATH_ROOT/config/tagx.xml" ) {
+  $TAGX = Bedrock::XML->new("$CONFIG_PATH_ROOT/config/tagx.xml");
+}
+
+1;
