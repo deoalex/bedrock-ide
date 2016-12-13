@@ -1,7 +1,7 @@
 <html>
   <title>Bedrock IDE</title>
   <head>
-    <script src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
+    <script src="http://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
 
     <script type="text/JavaScript" src="/bedrock-ide/javascript/bedrock-ide.js"></script>
     <link rel="stylesheet" type="text/css" href="/bedrock-ide/css/bedrock-ide.css" />
@@ -42,6 +42,7 @@
 	<span class="toolbar" id="toolbar-run"      alt="Run"><i class="fa fa-2x fa-play-circle"></i></span>
 	<span class="toolbar" id="toolbar-settings" alt="Settings"><i class="fa fa-2x fa-gears"></i></span>
 	<span class="toolbar" id="toolbar-info"     alt="Info"><i class="fa fa-2x fa-info"></i></span>
+	<span class="toolbar" id="toolbar-delete"   alt="Delete"><i class="fa fa-2x fa-trash"></i></span>
       </div>
       
       <div id="list-container">
