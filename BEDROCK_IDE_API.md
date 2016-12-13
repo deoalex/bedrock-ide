@@ -115,7 +115,7 @@ configuration file and hacking the `log4perl` section.
 
 ### /list
 
-`GET: /list/{sub-folder}`
+`GET /list/{sub-folder}`
 
 *List files in the root or sub-folder*
 
@@ -149,7 +149,7 @@ Saves the file text.
 *Returns the plugin text. Plugins are found in by the IDE by looking
  in the `PLUGIN_PATH` defined in the Bedrock IDE configuration file.*
 
-`POST /plugin/{plugin-name}`
+`POST /plugin`
 
 *Creates a new plugin.  Provide `plugin` (plugin name, example: Foo)
 and `binding` (example: foo) as data elements.  The binding is the
@@ -171,9 +171,34 @@ $ curl -X POST --data "plugin=Foo&binding=foo" http://localhost:8080/plugin
 
 *Saves the plugin script.*
 
+```
+$.ajax({url: '/bedrock-ide/api/plugin/Foo',
+        data: $('#text').val(),
+	method: 'PUT'
+	contentType: 'plain/text',
+	dataType: 'json',
+	success: funciont(data) {
+	  if ( data.status == "success" ) {
+	    alert("woohoo!");
+	  }
+	  else {
+	    alert("boohoo!");
+
+          }
+        }
+       });
+       
+```
+
 `DELETE /plugin/{plugin-name}`
 
-Deletes the plugin and the configuration file.
+*Deletes the plugin and the configuration file.*
+
+**curl example:**
+
+```
+$ curl -X DELETE http://localhost:8080/plugin/Foo
+```
 
 ### /plugin/config
 
@@ -214,11 +239,11 @@ values listed above.  If not, you'll get an error.
 
 ### /tag
 
-*Returns a list of tags or the tag documentation.*
+*Returns a list of Bedrock tags or the tag documentation.*
 
 `GET /tag`
 
-*Returns an array of tag names.*
+*Returns an array of Bedrock tag names.*
 
 `GET /tag/{tag-name}`
 
@@ -226,7 +251,8 @@ values listed above.  If not, you'll get an error.
 
 ### /plugin-doc
 
-*Returns a list of plugins or the plugin documentation.*
+*Returns a JSON objec containing lists of Bedrock Application Plugins
+ and Bedrock Plugins or the plugin documentation.*
 
 `GET /plugin-doc`
 
