@@ -611,25 +611,7 @@ sub get_tag {
   my $result;
     
   if ( $tag ) {
-    my $path;
-
-    my $perl5lib = '@bedrockdir@/lib/bedrock/perl5/Bedrock';
-    my $tag_file;
-    
-    foreach ( "NoBody", "WithBody", "WithBody/Loop" ) {
-      last if $tag_file;
-      my $dir = sprintf( "%s/Text/TagX/TAG/%s", $perl5lib, $_ );
-	
-      opendir TAGS, $dir || "could not open $dir for reading";
-	
-      while ( my $file = readdir TAGS ) {
-	next unless $file =~ /^$tag\.pm$/i;
-	$tag_file = $dir . "/" . $file if ( -s $dir . "/" . $file );
-	last;
-      }
-      closedir TAGS;
-    }
-    
+    my $tag_file = $docs->find_tag_file($tag);
     $result = $docs->pod($tag_file) if $tag_file;
 
     $logger->debug($result);
@@ -656,13 +638,11 @@ sub get_plugin_doc {
   
   if ( $result ) {
     if ( $plugin ) {
-      $plugin =~s/^BLM:://;
-      
       $result =  $result->{$plugin} ? $docs->pod($result->{$plugin} . '.pm') : undef;
     }
     else {
-      my @startup_blms = map { "BLM::$_" } grep { /^Startup:/ } sort keys %$result;
-      my @blms = map { "BLM::$_" } grep { ! /^Startup:/ } sort keys %$result;
+      my @startup_blms = grep { /^Startup:/ } sort keys %$result;
+      my @blms = grep { ! /^Startup:/ } sort keys %$result;
       $result = { 'application-plugins' => \@startup_blms,
 		  'plugins' => \@blms
 		};
