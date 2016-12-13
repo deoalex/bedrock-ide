@@ -249,6 +249,12 @@ values listed above.  If not, you'll get an error.
 
 *Returns the HTML documentation for a tag.*
 
+**curl example:**
+
+```
+$ curl -s http://localhost:8080/tag/sqlconnect
+```
+
 ### /plugin-doc
 
 *Returns a JSON objec containing lists of Bedrock Application Plugins
@@ -261,3 +267,9 @@ values listed above.  If not, you'll get an error.
 `GET /plugin-doc/{plugin-name}`
 
 *Returns the HTML documentation of a tag.*
+
+**curl example:**
+
+```
+$ curl -s http://localhost:8080/plugin-doc/BLM::Startup::UserSession
+```
