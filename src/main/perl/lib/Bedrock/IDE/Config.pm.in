@@ -1,5 +1,7 @@
 package Bedrock::IDE::Config;
 
+# Implements a 'singleton' pattern for our configuration
+
 our $IDE_CONFIG;
 our $CONFIG;
 our $DOCUMENT_ROOT;
@@ -12,6 +14,7 @@ our $PERL5LIB;
 our $TAGX;
 
 use Bedrock::XML;
+use File::Copy;
 use parent qw/Exporter/;
 use vars qw/@EXPORT_OK/;
 
@@ -33,4 +36,25 @@ if ( -e "$CONFIG_PATH_ROOT/config/tagx.xml" ) {
   $TAGX = Bedrock::XML->new("$CONFIG_PATH_ROOT/config/tagx.xml");
 }
 
+# can only be called as a class method
+sub save {
+  die "Bedrock::IDE::Config::save() only\n" if $_[0] ne 'Bedrock::IDE::Config';
+
+  $IDE_CONFIG->{'bedrock-ide'} = $CONFIG;
+
+  move('@libdir@/bedrock-ide/config/bedrock-ide.xml', '@libdir@/bedrock-ide/config/bedrock-ide.xml~');
+
+  Bedrock::XML::writeXML($IDE_CONFIG, '@libdir@/bedrock-ide/config/bedrock-ide.xml');
+}
+
+sub restore {
+  die "Bedrock::IDE::Config::restore() only\n" if $_[0] ne 'Bedrock::IDE::Config';
+
+  if (-e '@libdir@/bedrock-ide/config/bedrock-ide.xml~' ) {
+    move('@libdir@/bedrock-ide/config/bedrock-ide.xml~', '@libdir@/bedrock-ide/config/bedrock-ide.xml');
+  }
+  else {
+    die "no restore file\n";
+  }
+}
 1;
