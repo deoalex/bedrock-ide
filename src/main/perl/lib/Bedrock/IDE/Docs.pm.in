@@ -17,6 +17,30 @@ use Pod::Html;
 use Scalar::Util qw/reftype/;
 use Text::TagX;
 
+
+=pod
+
+=head1 PUBLIC
+
+C<Bedrock::IDE::Docs>
+
+=head1 SYNOPSIS
+
+ BEGIN {
+  use lib '/usr/lib/bedrock/perl5';
+ }
+
+ my $docs = Bedrock::IDE::Docs->new;
+
+ print join("\n", $docs->tags);
+ my $modules = $docs->get_plugin_listing();
+ print join("\n", $modules->{'BLM::Startup::Main'});
+
+
+=head1 DESCRIPTION
+
+=cut
+
 sub get_modules {
   my $dir = shift;
   my $no_blms = shift;
@@ -109,15 +133,36 @@ sub get_all_modules {
 
 =pod
 
-=head2 get_all_blms
+=head2 get_plugin_listing
+
+ get_plugin_listing()
+
+Returns a hash reference of modules (keys) and files (values).
 
 =cut
 
 sub get_plugin_listing {
   my $self = shift;
   
-  get_all_modules( [ $self->plugin_path . '/BLM'], 1);
+  my $modules = get_all_modules( [ $self->plugin_path . '/BLM'], 1);
+
+  foreach (keys %$modules ) {
+    my $v = delete $modules->{$_};
+    $modules->{"BLM::$_"} = $v;
+  }
+
+  return $modules;
 }
+
+=pod
+
+=head2 tags
+
+ tags()
+
+Returns an array reference listing all of the Bedrock tags.
+
+=cut
 
 sub tags {
   $Text::TagX::Opentag_expr =~ /^\^\((.*?)\)/;
@@ -128,9 +173,46 @@ sub tags {
   return \@tag_listing;
 }
 
+sub find_tag_file {
+  my $self = shift;
+  my $tag = shift;
+  
+  my $perl5lib = '@bedrockdir@/lib/bedrock/perl5/Bedrock';
+  my $tag_file;
+  
+  foreach ( "NoBody", "WithBody", "WithBody/Loop" ) {
+    last if $tag_file;
+    my $dir = sprintf( "%s/Text/TagX/TAG/%s", $perl5lib, $_ );
+    
+    opendir TAGS, $dir || "could not open $dir for reading";
+    
+    while ( my $file = readdir TAGS ) {
+      next unless $file =~ /^$tag\.pm$/i;
+      $tag_file = $dir . "/" . $file if ( -s $dir . "/" . $file );
+	last;
+    }
+    closedir TAGS;
+  }
+  
+  return $tag_file;
+}
+
+=pod
+
+=head2 pod
+
+ pod( file, [keep-header] )
+
+Returns the HTML version of the pod for the given file.  Unless
+C<keep-header> is defined only the body of the html is returned
+(without <body> tags).
+
+=cut
+
 sub pod {
   my $self = shift;
   my $file = shift;
+  my $keep_header = shift;
 
   my (undef, $outfile) = tempfile();
   
@@ -151,9 +233,11 @@ sub pod {
     $data = <FILE>;
     close FILE;
   }
-  
-  if ( $data =~ /<body>(.*?)<\/body>/s ) {
-    $data = $1;
+
+  unless ( defined $keep_header ) {
+    if ( $data =~ /<body>(.*?)<\/body>/s ) {
+      $data = $1;
+    }
   }
   
   return $data;
