@@ -1,0 +1,195 @@
+.main.container,
+.masthead > .container {
+  position: relative;
+}
+
+.masthead > .container,
+.main.container,
+.fixed.menu > .container {
+  margin-left: 3em !important;
+  margin-right: 3em !important;
+  width: auto !important;
+  max-width: 960px !important;
+}
+
+.masthead > .container {
+  margin-right: 387px !important;
+}
+
+.main.container {
+  margin-right: 387px !important;
+}
+
+.masthead.segment {
+  position: relative;
+  z-index: 3;
+  margin: 0em;
+  padding: 2em 0em 1em 0em;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #DDDDDD;
+  box-shadow: none;
+}
+
+.masthead .introduction {
+  display: block;
+}
+
+.masthead .introduction:after {
+  content: ".";
+  display: block;
+  height: 0;
+  clear: both;
+  visibility: hidden;
+}
+
+.masthead.segment h1 {
+  margin: 0em;
+}
+
+.bedrock-logo {
+  width: 150px;
+}
+
+.file-menu {
+  margin-top: 1rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.main_tab_div {
+  min-height: 680px;
+}
+
+.main-file-content {
+  min-height: 650px;
+}
+
+.file_list_tab a.item {
+  padding-right: 5px !important;
+}
+
+.file_list_tab .close {
+  margin-left: 20px !important;
+}
+
+.editor { 
+  position: absolute !important;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-height: 600px;
+  height: auto;
+  border: 1px solid #D0D0D0;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+  margin-top: 10px !important;
+  border-top: none;
+}
+
+.bedrock-help {
+  font-size: 16px !important;
+}
+
+.bedrock-help .item {
+  margin: 3px;
+}
+
+.bedrock-help a {
+  margin-top: 10px !important;
+  margin-bottom: 10px !important;
+}
+
+#cursorDetails {
+  width: 50%;
+  display: inline-block;
+}
+
+#fileLength {
+  display: inline-block; 
+  text-align: right; 
+  width: 49%;
+}
+
+.close-help-icon,
+.close-settings-icon,
+.close-newfile-icon {
+  float: right;
+  cursor: pointer;
+}
+
+.sidebar a.item,
+.sidebar .header {
+  font-size: 16px !important;
+  color: #fff !important;
+}
+
+.sidebar .header {
+  cursor: pointer;
+}
+
+.bedrock-help .item div.item {
+  margin-bottom: 0px !important;
+  padding-bottom: 0px !important;
+}
+
+.bedrock-error-info {
+  clear: both;
+  display: none;
+  text-align: center;
+}
+
+.header.load-folder {
+  margin-left: 5px !important;
+}
+
+.files-list {
+  padding-top: 5px;
+}
+
+/* side bar */
+
+.logo-div {
+  margin: 10px;
+}
+
+.files-div,
+.plugins-div {
+  border-top: rgba(255, 255, 255, 0.2) 1px solid;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.new-file,
+.new-plugin {
+  float: right;
+  cursor: pointer;
+  margin-right: 10px !important;
+}
+
+.edit-file {
+  cursor: pointer;
+}
+
+.delete-file {
+  float: right;
+  cursor: pointer;
+  margin-right: 10px !important;
+}
+
+.files-list .item a {
+  color: #fff;
+  padding: 5px;
+  font-size: 16px;
+}
+
+.files-list .item {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}
+
+/* pusher */
+
+.bedrock-settings {
+  float: right;
+  cursor: pointer;
+}
