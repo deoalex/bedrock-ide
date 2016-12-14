@@ -1,64 +1,175 @@
+<!DOCTYPE html>
 <html>
+<head>
+  <!-- Standard Meta -->
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
   <title>Bedrock IDE</title>
-  <head>
-    <script src="http://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
 
-    <script type="text/JavaScript" src="/bedrock-ide/javascript/bedrock-ide.js"></script>
-    <link rel="stylesheet" type="text/css" href="/bedrock-ide/css/bedrock-ide.css" />
-    <link rel="stylesheet" type="text/css" href="/bedrock-ide/css/font-awesome.css" />
-  </head>
-  
-  <body>
-    <div id="bedrock-ide-container">
-      <img id="bedrock-logo" src="/bedrock/img/bedrock.png">
+  <link rel="icon" type="image/icon" href="favicon.ico">
 
-      <div id="error-container" style="z-index:999;" class="modal-container">
-	<div id="error-container-content" class="popup">
-	  <div id="error-container-close" class="close-container">
-	    <span id="error-close" class="window-close"><i class="fa fa-window-close"></i></span>
-	  </div>
-	  <div id="error-container-message">
-	  </div>
-	</div>
-      </div>
-      
-      <div id="config-container" style="z-index:1;" class="modal-container">
-	<div id="config-container-content" class="popup">
-	  <div id="close-container" class="close-container">
-	    <span id="config-close" class="window-close"><i class="fa fa-window-close"></i></span>
-	  </div>
-	  <label for="document-root">DOCUMENT_ROOT</label><input id="document-root" type="text" name="document_root" size="60"><br/>
-	  <label for="config-path-root">CONFIG_PATH_ROOT</label><input id="config-path-root" type="text" name="config_path_root" size="60"><br/>
-	  <label for="plugin-path">PLUGIN_PATH</label><input id="plugin-path" type="text" name="plugin_path" size="60"><br/>
-	  <label for="perl5lib">PERL5LIB</label><input id="perl5lib" type="text" name="perl5lib" size="60"><br/>
-	  <label for="port">PORT</label><input id="port" type="text" name="port" size="60"><br/>
-	  <label for="host_name">HOST_NAME</label><input id="host_name" type="text" name="host_name" size="60"><br/>
-	  <label for="index_page">INDEX_PAGE</label><input id="index_page" type="text" name="index_page" size="60"><br/>
-	</div>
-      </div>
-      
-      <div id="toolbar-container">
-	<span class="toolbar" id="toolbar-save"     alt="Save"><i class="fa fa-2x fa-floppy-o"></i></span>
-	<span class="toolbar" id="toolbar-run"      alt="Run"><i class="fa fa-2x fa-play-circle"></i></span>
-	<span class="toolbar" id="toolbar-settings" alt="Settings"><i class="fa fa-2x fa-gears"></i></span>
-	<span class="toolbar" id="toolbar-info"     alt="Info"><i class="fa fa-2x fa-info"></i></span>
-	<span class="toolbar" id="toolbar-delete"   alt="Delete"><i class="fa fa-2x fa-trash"></i></span>
-      </div>
-      
-      <div id="list-container">
-	<h2>Bedrock Pages</h2>
-	<div class="list" id="folder-list"></div>
-	
-	<h2>Plugins</h2>
-	<div class="list" id="plugin-list"></div>
-      </div>
-      
-      <div id="bedrock-text-container">
-	<textarea id="bedrock-text"></textarea>
-      </div>
-      
+  <!-- css files -->
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css">
+  <link rel="stylesheet" href="css/main.css">
+
+</head>
+<body>
+
+  <!-- side bar -->
+
+  <div class="ui vertical visible wide sidebar" id="file_list" style="background-color: #000;">
+    <div class="logo-div">
+      <a class="ui logo icon image" href="/bedrock-ide/index.roc">
+        <img src="img/bedrock_logo.png" alt="bedrock image" class="bedrock-logo">
+      </a>
     </div>
- 
-    <input id="path" type="hidden">
-  </body>
+    <div class="files-div">
+      <div class="header file-list-header">Files<i class="plus icon new-file"></i></div>
+    </div>
+    <div class="plugins-div">
+      <div class="header plugin-list-header">Plugins<i class="plus icon new-plugin"></i></div>
+    </div>
+  </div>
+
+  <!-- side bar -->
+
+  <!-- pusher -->
+
+  <div class="pusher">
+
+    <div class="ui masthead vertical segment">
+      <div class="ui container">
+        <a class="popup icon item bedrock-settings" data-content="settings">
+          <i class="settings large icon"></i>
+        </a>
+        <div class="introduction">
+          <h1 class="ui header">
+            Bedrock IDE           
+          </h1>         
+        </div>      
+      </div>
+    </div> 
+
+    <div class="main ui container">
+      <div class="ui right dividing rail" style="padding: 0 0 0 2rem;">
+        <div class="ui basic segment" style="padding-left: 0px;">        
+          <xinclude --file="bedrock_help.inc">
+        </div><!-- .segment -->
+      </div><!-- .rail -->
+
+      <div class="ui left floated main tiny menu file-menu">
+        <a class="popup icon item save-file" data-content="save">
+          <i class="save icon"></i>
+        </a>
+      </div>  
+
+      <div class="ui right floated main tiny menu file-menu">    
+        <a class="popup icon item run-file" data-content="run">
+          <i class="caret right icon"></i>
+        </a>
+      </div>
+
+      <div class="ui error message bedrock-error-info"></div>
+
+      <div class="main_tab_div">
+        <input type="hidden" id="tab_cnt" name="tab_cnt" value="0">  
+      </div>
+
+      <div class="ui basic segment main-file-content">
+        <div id="cursorDetails" class="ui basic segment"></div>
+        <div id="fileLength" class="ui basic right floated"></div>
+      </div>
+    </div><!-- .main .ui .container -->
+
+  </div><!-- .pusher -->
+
+  <div class="ui modal bedrock-help-modal">
+    <div class="header">
+      Modal Title
+      <i class="close icon close-help-icon"></i>
+    </div>
+    <div class="image content">
+      <div class="description">
+        A description can appear on the right
+      </div>
+    </div>
+    <div class="actions">
+      <div class="ui button close-help-modal">OK</div>
+    </div>
+  </div>
+
+  <div class="ui modal bedrock-settings-modal">
+    <div class="header">
+      Settings
+      <i class="close icon close-settings-icon"></i>
+    </div>
+    <div class="content">
+      <form id="bedrock_settings_form" name="bedrock_settings_form" class="ui form">
+        <div class="field">
+          <label for="document_root">DOCUMENT_ROOT</label>
+          <input type="text" id="document_root" name="document_root" placeholder="DOCUMENT_ROOT" size="60">
+        </div>
+        <div class="field">
+          <label for="config_path_root">CONFIG_PATH_ROOT</label>
+          <input type="text" id="config_path_root" name="config_path_root" placeholder="CONFIG_PATH_ROOT" size="60">
+        </div>
+        <div class="field">
+          <label for="plugin_path">PLUGIN_PATH</label>
+          <input type="text" id="plugin_path" name="plugin_path" placeholder="PLUGIN_PATH" size="60">
+        </div>
+        <div class="field">
+          <label for="perl5lib">PERL5LIB</label>
+          <input type="text" id="perl5lib" name="perl5lib" placeholder="PERL5LIB" size="60">
+        </div>
+        <div class="field">
+          <label for="port">PORT</label>
+          <input type="text" id="port" name="port" placeholder="PORT" size="60">
+        </div>
+        <div class="field">
+          <label for="host_name">HOST_NAME</label>
+          <input type="text" id="host_name" name="host_name" placeholder="HOST_NAME" size="60">
+        </div>
+        <div class="field">
+          <label for="index_page">INDEX_PAGE</label>
+          <input type="text" id="index_page" name="index_page" placeholder="INDEX_PAGE" size="60">
+        </div>
+      </form><!-- ui form -->
+    </div>
+    <div class="actions">
+      <div class="ui red button close-settings-modal"><i class="remove icon"></i>Cancel</div>
+      <div class="ui green button submit-settings-modal"><i class="checkmark icon"></i>Save</div>    
+    </div>
+  </div>
+
+  <div class="ui modal bedrock-newfile-modal">
+    <div class="header">
+      New File
+      <i class="close icon close-newfile-icon"></i>
+    </div>
+    <div class="content">
+      <form id="bedrock_newfile_form" name="bedrock_newfile_form" class="ui form">
+        <div class="field">
+          <label for="file_name">File Name</label>
+          <input type="text" id="file_name" name="file_name" placeholder="File Name" size="60">
+        </div>
+      </form><!-- ui form -->
+    </div>
+    <div class="actions">
+      <div class="ui red button close-newfile-modal"><i class="remove icon"></i>Cancel</div>
+      <div class="ui green button submit-newfile-modal"><i class="checkmark icon"></i>Save</div>    
+    </div>
+  </div>
+
+  <!-- pusher -->  
+
+  <!-- js files -->
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ext-language_tools.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/theme-chrome.js"></script>
+  <script src="javascript/main.js"></script>
+
+</body>
 </html>
