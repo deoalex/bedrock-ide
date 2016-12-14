@@ -31,9 +31,8 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-DIST_COMMON = $(dist_css_DATA) $(dist_fontawesome_fonts_DATA) \
-	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(top_srcdir)/directories.inc
+DIST_COMMON = $(dist_css_DATA) $(srcdir)/Makefile.am \
+	$(srcdir)/Makefile.in $(top_srcdir)/directories.inc
 subdir = src/main/bedrock/css
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/autotools/ads_PERL_INCLUDES.m4 \
@@ -78,9 +77,8 @@ am__nobase_list = $(am__nobase_strip_setup); \
 am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__installdirs = "$(DESTDIR)$(cssdir)" \
-	"$(DESTDIR)$(fontawesome_fontsdir)"
-DATA = $(dist_css_DATA) $(dist_fontawesome_fonts_DATA)
+am__installdirs = "$(DESTDIR)$(cssdir)"
+DATA = $(dist_css_DATA)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 AM_RECURSIVE_TARGETS = $(RECURSIVE_TARGETS:-recursive=) \
@@ -231,17 +229,7 @@ bedrock_idedir = @datadir@/bedrock-ide
 javascriptdir = $(bedrock_idedir)/javascript
 fontawesome_fontsdir = $(bedrock_idedir)/fonts
 dist_css_DATA = \
-    bedrock-ide.css \
-    font-awesome.min.css \
-    font-awesome.css
-
-dist_fontawesome_fonts_DATA = \
-    fonts/FontAwesome.otf \
-    fonts/fontawesome-webfont.eot \
-    fonts/fontawesome-webfont.svg \
-    fonts/fontawesome-webfont.ttf \
-    fonts/fontawesome-webfont.woff \
-    fonts/fontawesome-webfont.woff2
+    main.css
 
 all: all-recursive
 
@@ -296,26 +284,6 @@ uninstall-dist_cssDATA:
 	test -n "$$files" || exit 0; \
 	echo " ( cd '$(DESTDIR)$(cssdir)' && rm -f" $$files ")"; \
 	cd "$(DESTDIR)$(cssdir)" && rm -f $$files
-install-dist_fontawesome_fontsDATA: $(dist_fontawesome_fonts_DATA)
-	@$(NORMAL_INSTALL)
-	test -z "$(fontawesome_fontsdir)" || $(MKDIR_P) "$(DESTDIR)$(fontawesome_fontsdir)"
-	@list='$(dist_fontawesome_fonts_DATA)'; test -n "$(fontawesome_fontsdir)" || list=; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(fontawesome_fontsdir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(fontawesome_fontsdir)" || exit $$?; \
-	done
-
-uninstall-dist_fontawesome_fontsDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(dist_fontawesome_fonts_DATA)'; test -n "$(fontawesome_fontsdir)" || list=; \
-	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	test -n "$$files" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(fontawesome_fontsdir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(fontawesome_fontsdir)" && rm -f $$files
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run `make' without going through this Makefile.
@@ -515,7 +483,7 @@ check: check-recursive
 all-am: Makefile $(DATA)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(cssdir)" "$(DESTDIR)$(fontawesome_fontsdir)"; do \
+	for dir in "$(DESTDIR)$(cssdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -563,8 +531,7 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-dist_cssDATA \
-	install-dist_fontawesome_fontsDATA
+install-data-am: install-dist_cssDATA
 
 install-dvi: install-dvi-recursive
 
@@ -608,8 +575,7 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-dist_cssDATA \
-	uninstall-dist_fontawesome_fontsDATA
+uninstall-am: uninstall-dist_cssDATA
 
 .MAKE: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) ctags-recursive \
 	install-am install-strip tags-recursive
@@ -619,15 +585,14 @@ uninstall-am: uninstall-dist_cssDATA \
 	ctags-recursive distclean distclean-generic distclean-tags \
 	distdir dvi dvi-am html html-am info info-am install \
 	install-am install-data install-data-am install-dist_cssDATA \
-	install-dist_fontawesome_fontsDATA install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs installdirs-am \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic pdf pdf-am ps ps-am tags tags-recursive \
-	uninstall uninstall-am uninstall-dist_cssDATA \
-	uninstall-dist_fontawesome_fontsDATA
+	install-dvi install-dvi-am install-exec install-exec-am \
+	install-html install-html-am install-info install-info-am \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic pdf \
+	pdf-am ps ps-am tags tags-recursive uninstall uninstall-am \
+	uninstall-dist_cssDATA
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
