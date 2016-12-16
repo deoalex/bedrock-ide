@@ -11,6 +11,7 @@ use Bedrock::IDE::Docs;
 use Data::Dumper;
 use Log::Log4perl;
 use Scalar::Util qw/reftype/;
+use IPC::Run3;
 
 Bedrock::IDE::API->mk_accessors(qw/cgi path api_path/);
 
@@ -456,15 +457,29 @@ sub post_plugin {
   
   my $plugin = $cgi->param('plugin');
   my $binding = $cgi->param('binding') || lc($plugin);
-  
+  my ($in, $out, $err);
+  my $err_code;
+
   if ( $plugin && $binding ) {
     $logger->debug(sprintf("plugin: %s binding: %s", $plugin, $binding));
-    `@bindir@/bedrock-plugin -x -r -d $plugin_path -c $config_path -m $plugin -b $binding`;
-    $plugin = "$plugin_path/BLM/Startup/${plugin}.pm";
-    open (my $fh, "<$plugin") or die "could not create plugin [$plugin]";
-    local $/;
-    $result->{data} = <$fh>;
-    close $fh;
+    untie *STDERR;
+    $SIG{CHLD} = 'DEFAULT';
+    my $cmd = '@bindir@/bedrock-plugin '. " -x -r -d $plugin_path -c $config_path -m $plugin -b $binding";
+    $logger->debug("cmd: $cmd");
+    run3($cmd, \$in, \$out, \$err);
+    $err_code = $?;
+    tie *STDERR, 'Bedrock::IDE::Trapper';
+
+    unless ( $err_code ) {
+      $plugin = "$plugin_path/BLM/Startup/${plugin}.pm";
+      open (my $fh, "<$plugin") or die "could not create plugin [$plugin]";
+      local $/;
+      $result->{data} = <$fh>;
+      close $fh;
+    }
+    else {
+      die $err;
+    }
   }
   else {
     die "module and binding must be provided\n";
