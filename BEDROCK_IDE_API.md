@@ -22,9 +22,6 @@ $ sudo service bedrock-ided start
 Starting bedrock-ided: Bedrock::IDE: You can connect to your server at http://localhost:8080/
                                                            [  OK  ]
 $ curl http://localhost:8080/list
-HTTP/1.0 200 OK
-Content-Type: application/json
-
 {
    "status" : "success",
    "data" : [
@@ -68,14 +65,16 @@ LoadModule proxy_http_module modules/mod_proxy_http.so
 
 By default the Apache configuration requires a valid user using an
 HTTP challenge.  Valid users by default are found in the
-`bedrock.users` file as shown below.
+`bedrock.users` file.  A sample Apache configuration is shown below.
 
 ```
+Alias /bedrock-ide /usr/share/bedrock-ide/htdocs
+
 <Directory /usr/share/bedrock-ide/htdocs>
    AcceptPathInfo On
-   DirectorySlash Off
-   Options -Indexes
-
+   DirectoryIndex index.roc
+   Options +Index
+   
    Order allow,deny
    Allow from all
 
