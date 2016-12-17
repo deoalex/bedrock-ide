@@ -3,7 +3,39 @@ $(document).ready(function() {
 
   /******** functions ***********/
 
-  function add_new_tab(data, file_name) {
+  function bedrock_status_message_set(mode, msg) {
+    $(".bedrock-status-info").removeClass("success error").html("").hide();
+    if (mode == "success") {
+      $(".bedrock-status-info").removeClass("success error").addClass("success").html($("<p>").html(msg));
+    }
+    else if (mode == "error") {
+      $(".bedrock-status-info").removeClass("success error").addClass("error").html($("<p>").html(msg));
+    }
+    $(".bedrock-status-info").show();
+    setTimeout(function() {
+      $(".bedrock-status-info").fadeOut(1000, function() {
+        $(this).removeClass("success error").empty();
+      });
+    }, 5000);
+  }
+
+  function modal_status_message_set(mode, msg) {
+    $(".modal-status-info").removeClass("success error").html("").hide();
+    if (mode == "success") {
+      $(".modal-status-info").removeClass("success error").addClass("success").html($("<p>").html(msg));
+    }
+    else if (mode == "error") {
+      $(".modal-status-info").removeClass("success error").addClass("error").html($("<p>").html(msg));
+    }
+    $(".modal-status-info").show();
+    setTimeout(function() {
+      $(".modal-status-info").fadeOut(1000, function() {
+        $(this).removeClass("success error").empty();
+      });
+    }, 5000);
+  }
+
+  function add_new_tab(data, file_name, file_type) {
     $(".file_list_tab .item").removeClass("active");
     $(".main_tab_div .segment").removeClass("active");
 
@@ -20,20 +52,30 @@ $(document).ready(function() {
     var tab_segment = $("<div>").addClass("ui bottom attached active tab segment")
                         .attr("data-tab", "tab-item" + + $("#tab_cnt").val());
 
-    var editor = $("<div>").addClass("editor").attr("id", "editor" + $("#tab_cnt").val()).attr("data-file-name", file_name);
+    var editor = $("<div>").addClass("editor")
+                    .attr("id", "editor" + $("#tab_cnt").val())
+                    .attr("data-file-name", file_name)
+                    .attr("data-file-type", file_type);
     $(editor).appendTo(tab_segment);
 
     $(tab_segment).appendTo(".main_tab_div");
+
     $(".file_list_tab .item").tab({
       onVisible: function() {
         $("#cursorDetails, #fileLength").html("");
+        $(".bedrock-status-info").removeClass("success error").html("").hide();
       }
     });
 
     ace.require("ace/ext/language_tools");
     var editor = ace.edit("editor" + $("#tab_cnt").val());  
     editor.setTheme("ace/theme/chrome");
-    editor.getSession().setMode("ace/mode/html");
+    if (file_type == "file") {
+      editor.getSession().setMode("ace/mode/html");
+    }
+    else if (file_type == "plugin") {
+      editor.getSession().setMode("ace/mode/perl");
+    }
     editor.$blockScrolling = Infinity;
     editor.getSession().setTabSize(2);
 
@@ -53,33 +95,28 @@ $(document).ready(function() {
     editor.gotoLine(1);
   }
 
-  function get_file_content(file_name) {
-    var file_type = "file";
+  function get_file_content(file_name, file_type) {
     var uri = "/bedrock-ide/api/" + file_type + "/" + file_name;
-
     $.ajax({
       url: uri,          
       type: "GET",
       success: function(data) {
         if(data.status == "success") {          
           data = data.data;
-          $("#path").val(file_name);
-          add_new_tab(data, file_name); 
+          add_new_tab(data, file_name, file_type); 
         }
         else {
-          alert(data.message)
+          bedrock_status_message_set("error", data.message);
         }
       },
       error: function(xhr,status,error) {
-        alert("Error happened..");
+        bedrock_status_message_set("error", error);
       }
     });
   }
 
-  function save_file_content(file_content, file_name) {
-    var file_type = "file";
-    var uri = "/bedrock-ide/api/" + file_type + "/" + file_name;
-    
+  function save_file_content(file_content, file_name, file_type) {  
+    var uri = "/bedrock-ide/api/" + file_type + "/" + file_name;    
     $.ajax({
       url: uri,
       method: "PUT",
@@ -88,39 +125,49 @@ $(document).ready(function() {
       data: file_content,
       success: function(data) {
         if ( data.status == "success" ) {
-          alert("saved");
+          if (file_type == "plugin") {
+            var current_editor = $("div.tab.active").find(".editor").attr("id");
+            var editor = ace.edit(current_editor);
+            editor.getSession().setAnnotations([]);
+          }
+          bedrock_status_message_set("success", "File saved successfully.");
         }
         else {
-          alert(data.message);
+          if (file_type == "file") {
+            bedrock_status_message_set("error", data.message);
+          }
+          else {            
+            var current_editor = $("div.tab.active").find(".editor").attr("id");
+            var editor = ace.edit(current_editor);
+            editor.session.setOption("useWorker", false);            
+            var lines = "";
+            var line_marker_collection = [];
+            $.each(data.message.lines, function(index) {              
+              var line_num = data.message.lines[index];
+              if (lines == "") {
+                lines = line_num;
+              }
+              else {
+                lines += ", " + line_num;
+              }
+              line_marker = {};
+              line_marker["row"] = line_num - 1;
+              line_marker["column"] = "0";
+              line_marker["type"] = "error";              
+              line_marker_collection.push(line_marker);
+            });
+            editor.getSession().setAnnotations(line_marker_collection);
+            bedrock_status_message_set("error", "<p>" + data.message.error + "</p><p>Please check line no: " + lines + "</p>");            
+          }
         }
       },
-      error: function() {
-        alert("Error happened");
-      }
-    });
-  }
-
-  function delete_file(file_name) {
-    $.ajax({
-      url: "/bedrock-ide/api/file/" + file_name,
-      method: "DELETE",
-      success: function(data) {
-        if ( data.status == "success" ) {
-          return true;
-        }
-        else {
-          alert(data.message);
-        }
-      },
-      error: function() {
-        alert("Error happened");
+      error: function(xhr,status,error) {
+        bedrock_status_message_set("error", error);
       }
     });
   }
 
   function get_files_list(isFolder, folderDOM) {
-    //ajax call to load folder content
-
     var url, item, folder;
 
     if(isFolder) {
@@ -160,11 +207,9 @@ $(document).ready(function() {
             else {
               var list_item = $("<div>").addClass("item");
 
-              //var edit = $("<a>").html($("<i>").addClass("edit icon edit-file"));
               var file = $("<a>").html(val).addClass("item load-file").attr("data-file-uri", folder + val);
               var del = $("<a>").html($("<i>").addClass("trash icon delete-file"));
 
-              //$(edit).appendTo(list_item);
               $(file).appendTo(list_item);
               $(del).appendTo(list_item);
 
@@ -174,17 +219,18 @@ $(document).ready(function() {
           });
         }
         else {
-          alert(data.message);
+          bedrock_status_message_set("error", data.message);
         }
       },
-      error: function() {
-        alert("Error happened");
+      error: function(xhr,status,error) {
+        bedrock_status_message_set("error", error);
       }
     });
   }
 
   function get_plugins_list() {
     var url = "/bedrock-ide/api/plugin";
+    var item = $(".plugins-div");      
 
     $.ajax({
       url: url,
@@ -193,22 +239,258 @@ $(document).ready(function() {
         if ( data.status == "success" ) {
           data = data.data;
           data.sort();
-          console.log(data);
 
-          //var list = $("<div>").addClass("ui list files-list");
+          var list = $("<div>").addClass("ui list plugins-list");
+
+          $.each(data, function(index){
+            var list_item = $("<div>").addClass("item");
+
+            var plugin = $("<a>").html(data[index]).addClass("item load-plugin").attr("data-file-uri", data[index]);
+            var del = $("<a>").html($("<i>").addClass("trash icon delete-plugin"));     
+
+            $(plugin).appendTo(list_item);
+            $(del).appendTo(list_item);
+
+            $(list_item).appendTo(list);
+            $(list).appendTo(item);     
+
+          });
         }
         else {
-          alert(data.message);
+          bedrock_status_message_set("error", data.message);
         }
       },
-      error: function() {
-        alert("Error happened");
+      error: function(xhr,status,error) {
+        bedrock_status_message_set("error", error);
       }
     });
   }
 
   function get_config() {
     //make an ajax call to get config info
+    $.ajax({
+      url: "/bedrock-ide/api/config",
+      dataType: "json",
+      success: function(data) {
+        if ( data.status == "success" ) {
+          data = data.data;
+          bedrock_ide_config = data;
+          $("#document_root").val(data.DOCUMENT_ROOT);
+          $("#config_path_root").val(data.CONFIG_PATH_ROOT);
+          $("#plugin_path").val(data.PLUGIN_PATH);
+          $("#port").val(data.PORT);
+          $("#perl5lib").val(data.PERL5LIB);
+          $("#host_name").val(data.HOST_NAME);
+          $("#index_page").val(data.INDEX_PAGE);
+        }
+        else {
+          modal_status_message_set("error", data.message);
+        }
+      },
+      error: function(xhr,status,error) {
+        modal_status_message_set("error", error);
+      }
+    });
+  }
+
+  function save_config() {
+    var document_root = $("#document_root").val().trim();
+    var config_path_root = $("#config_path_root").val().trim();
+    var perl5lib = $("#perl5lib").val().trim();
+    var plugin_path = $("#plugin_path").val().trim();
+    var port = $("#port").val().trim();
+    var host_name = $("#host_name").val().trim();
+    var index_page = $("#index_page").val().trim();
+    
+    var err_str = '';
+    var fatal = false;
+    
+    if (document_root == "") {
+      err_str += "DOCUMENT_ROOT cannot be blank!\n";
+      $("#document_root").val(bedrock_ide_config.DOCUMENT_ROOT);
+      fatal = true;
+    }
+    
+    if (config_path_root == "") {
+      err_str += "CONFIG_PATH_ROOT cannot be blank!\n";
+      $("#config_path_root").val(bedrock_ide_config.CONFIG_PATH_ROOT);
+      fatal = true;
+    }
+    
+    if (plugin_path == "") {
+      err_str += "PLUGIN_PATH cannot be blank!\n";
+      $("#plugin_path").val(bedrock_ide_config.PLUGIN_PATH);
+      fatal = true;
+    }
+    
+    if (port == "") {
+      err_str += "PORT cannot be blank! Resetting to default.\n";
+      $("#port").val(bedrock_ide_config.PORT);
+    }
+    
+    if (perl5lib == "") {
+      err_str += "WARNING: Your plugins may not compile or execute without PERL5LIB.\n";
+    }
+
+    if (index_page == "") {
+      $("#index_page").val("/index.roc");
+    }
+
+    if (err_str != "") {
+      modal_status_message_set("error", err_str);      
+      if (fatal) {
+        return false;
+      }
+    }
+    else {
+      $.ajax({
+        url: "/bedrock-ide/api/config",
+        method: "POST",
+        contentType: "application/json; charset=utf-8",
+        dataType: "json",
+        data: JSON.stringify({
+            "DOCUMENT_ROOT" : document_root,
+            "CONFIG_PATH_ROOT" : config_path_root,
+            "PERL5LIB" : perl5lib,
+            "PORT" : port,
+            "PLUGIN_PATH" : plugin_path,
+            "HOST_NAME" : host_name,
+            "INDEX_PAGE" : index_page
+        }),
+        success: function(data) {
+          if ( data.status == "success" ) {
+            bedrock_ide_config = data.data;
+            modal_status_message_set("success", "Settings saved successfully.");             
+          }
+          else {
+            modal_status_message_set("error", data.message);             
+            fatal = true;
+          }
+        },
+        error: function() {
+          modal_status_message_set("error", error);         
+        }
+      });
+  
+      return ! fatal;    
+    }
+  }
+
+  function new_file_content(file_content, file_name, binding_name, file_type) {
+    if (file_type == "file") {
+      var uri = "/bedrock-ide/api/" + file_type + "/" + file_name;
+    }
+    else if (file_type == "plugin") {
+      var uri = "/bedrock-ide/api/" + file_type + "/" + file_name + "/" + binding_name;
+    }
+    
+    $.ajax({
+      url: uri,
+      method: "PUT",
+      contentType: "text/plain",
+      dataType: "json",
+      data: file_content,
+      success: function(data) {
+        if ( data.status == "success" ) {
+          $(".main_tab_div, .file-menu").css("display", "block");
+          add_new_tab("", file_name, file_type); 
+          if (file_type == "file") {
+            $(".file-list-header").next(".files-list").remove();
+            get_files_list(false);
+            bedrock_status_message_set("success", "File created successfully.");
+          }
+          else if (file_type == "plugin") {
+            $(".plugin-list-header").next(".plugins-list").remove();
+            get_plugins_list();
+            bedrock_status_message_set("success", "Plugin created successfully.");
+          }
+        }
+        else {
+          bedrock_status_message_set("error", data.message);
+        }
+      },
+      error: function(xhr,status,error) {
+        bedrock_status_message_set("error", error);
+      }
+    });
+  }
+
+  function get_tags_list() {
+    var url = "/bedrock-ide/api/tag";
+    var list = $(".bedrock-help-tag-list");      
+
+    $.ajax({
+      url: url,
+      dataType: "json",
+      success: function(data) {
+        if ( data.status == "success" ) {
+          data = data.data;
+          data.sort();
+          $.each(data, function(index){
+            var item = $("<div>").addClass("item");
+            var content = $("<div>").addClass("content");
+            var description = $("<div>").addClass("description");
+            var a = $("<a>").addClass("help-file").html(data[index]).attr("data-tag-name", data[index]);
+            $(a).appendTo(description);
+            $(description).appendTo(content);
+            $(content).appendTo(item);
+            $(item).appendTo(list);
+          });
+        }
+        else {
+          bedrock_status_message_set("error", data.message);
+        }
+      },
+      error: function(xhr,status,error) {
+        bedrock_status_message_set("error", error);
+      }
+    });
+  }
+
+  function get_plugins_doc_list() {
+    var url = "/bedrock-ide/api/plugin-doc";
+    var list_plugins = $(".bedrock-help-plugin-list");
+    var list_app_plugins = $(".bedrock-help-app-plugin-list");
+
+    $.ajax({
+      url: url,
+      dataType: "json",
+      success: function(data) {
+        if ( data.status == "success" ) {
+          var data_plugins = data.data["plugins"];
+          data_plugins.sort();
+          $.each(data_plugins, function(index){
+            var item = $("<div>").addClass("item");
+            var content = $("<div>").addClass("content");
+            var description = $("<div>").addClass("description");
+            var a = $("<a>").addClass("help-plugin").html(data_plugins[index]).attr("data-plugin-name", data_plugins[index]);
+            $(a).appendTo(description);
+            $(description).appendTo(content);
+            $(content).appendTo(item);
+            $(item).appendTo(list_plugins);
+          });
+
+          var data_app_plugins = data.data["application-plugins"];
+          data_app_plugins.sort();
+          $.each(data_app_plugins, function(index){
+            var item = $("<div>").addClass("item");
+            var content = $("<div>").addClass("content");
+            var description = $("<div>").addClass("description");
+            var a = $("<a>").addClass("help-plugin").html(data_app_plugins[index]).attr("data-plugin-name", data_app_plugins[index]);
+            $(a).appendTo(description);
+            $(description).appendTo(content);
+            $(content).appendTo(item);
+            $(item).appendTo(list_app_plugins);
+          });
+        }
+        else {
+          bedrock_status_message_set("error", data.message);
+        }
+      },
+      error: function(xhr,status,error) {
+        bedrock_status_message_set("error", error);
+      }
+    });
   }
 
   /********************************/
@@ -222,6 +504,15 @@ $(document).ready(function() {
     inline     : true
   });
 
+  $(".bedrock-dimmer").dimmer({
+    closable: false
+  });
+
+  $(".bedrock-help-modal").modal({
+    blurring: true,
+    closable: false
+  });
+
   $(".main_tab_div, .file-menu").css("display", "none");
 
   //initial files & folder load
@@ -230,21 +521,48 @@ $(document).ready(function() {
   //initial plugins load
   get_plugins_list();
 
+  //initial tags load
+  get_tags_list();
+
+  //initial plugins load
+  get_plugins_doc_list();
+
+  $.ajaxSetup({
+    cache: false
+  });
+
   $(document).on("click", ".load-file", function(e) {
     e.stopPropagation();
-    var uri = $(this).data("file-uri");
+    var file_name = $(this).data("file-uri");
     $(".main_tab_div, .file-menu").css("display", "block");
-    get_file_content(uri);    
+    get_file_content(file_name, "file");    
+  });
+
+  $(document).on("click", ".load-plugin", function(e) {
+    e.stopPropagation();
+    var file_name = $(this).data("file-uri");
+    $(".main_tab_div, .file-menu").css("display", "block");
+    get_file_content(file_name, "plugin");    
   });
 
   $(document).on("click", ".load-folder", function(e) {
     e.stopPropagation();
-    var uri = $(this).data("folder-uri");
-    get_files_list(true, $(this));
+    if ($(this).find(".files-list").size() != "0") {
+      $(this).find(".files-list").toggle();
+    }
+    else {
+      get_files_list(true, $(this));
+    }
   });
 
-  $(document).on("click", ".file-list-header", function() { 
+  $(document).on("click", ".file-list-header", function(e) { 
+    e.stopPropagation();
     $(".files-list:first").transition("toggle");
+  });
+
+  $(document).on("click", ".plugin-list-header", function(e) { 
+    e.stopPropagation();
+    $(".plugins-list:first").transition("toggle");
   });
 
   $(document).on("click", ".close-tab", function() {
@@ -258,8 +576,67 @@ $(document).ready(function() {
     }
   });
 
-  $(document).on("click", ".help-file", function() {
-    $(".bedrock-help-modal").modal("show");
+  $(".bedrock-help-tags .header:first").click(function(e) { 
+    e.stopPropagation();
+    $(".bedrock-help-tag-list").toggle();
+  });
+
+  $(".bedrock-help-plugins .header:first").click(function(e) { 
+    e.stopPropagation();
+    $(".bedrock-help-plugin-list").toggle();
+  });
+
+  $(".bedrock-help-app-plugins .header:first").click(function(e) { 
+    e.stopPropagation();
+    $(".bedrock-help-app-plugin-list").toggle();
+  });
+
+  $(document).on("click", ".help-file", function(e) {
+    e.stopPropagation();
+    var tag_name = $(this).data("tag-name");
+    var url = "/bedrock-ide/api/tag/" + tag_name;    
+
+    $.ajax({
+      url: url,
+      dataType: "json",
+      success: function(data) {
+        if ( data.status == "success" ) {
+          $(".bedrock-help-modal .header .header-text").html(tag_name);
+          $(".bedrock-help-modal .description").html(data.data);
+          $(".bedrock-help-modal").modal("show");
+        }
+        else {
+          bedrock_status_message_set("error", data.message);
+        }
+      },
+      error: function(xhr,status,error) {
+        bedrock_status_message_set("error", error);
+      }
+    });
+  });
+
+  $(document).on("click", ".help-plugin", function(e) {
+    e.stopPropagation();
+    var plugin_name = $(this).data("plugin-name");
+    var url = "/bedrock-ide/api/plugin-doc/" + plugin_name;    
+
+    $.ajax({
+      url: url,
+      dataType: "json",
+      success: function(data) {
+        if ( data.status == "success" ) {
+          $(".bedrock-help-modal .header .header-text").html(plugin_name);
+          $(".bedrock-help-modal .description").html(data.data);
+          $(".bedrock-help-modal").modal("show");
+        }
+        else {
+          bedrock_status_message_set("error", data.message);
+        }
+      },
+      error: function(xhr,status,error) {
+        bedrock_status_message_set("error", error);
+      }
+    });
   });
 
   $(".close-help-icon, .close-help-modal").click(function() {
@@ -269,8 +646,9 @@ $(document).ready(function() {
   $(document).on("click", ".save-file", function() {
     var current_editor = $("div.tab.active").find(".editor").attr("id");
     var file_name = $("#" + current_editor).data("file-name");
+    var file_type = $("#" + current_editor).data("file-type");
     var editor = ace.edit(current_editor);
-    save_file_content(editor.getValue(), file_name);
+    save_file_content(editor.getValue(), file_name, file_type);
   });
 
   $(document).on("click", ".run-file", function() {
@@ -291,14 +669,44 @@ $(document).ready(function() {
         method: "DELETE",
         success: function(data) {
           if ( data.status == "success" ) {
-            item.remove();
+            $(".file-list-header").next(".files-list").remove();
+            get_files_list(false);
+            bedrock_status_message_set("success", "File deleted successfully.");
           }
           else {
-            alert(data.message);
+            bedrock_status_message_set("error", data.message);
           }
         },
-        error: function() {
-          alert("Error happened");
+        error: function(xhr,status,error) {
+          bedrock_status_message_set("error", error);
+        }
+      });
+    }
+    else {
+      return false;
+    }
+  });
+
+  $(document).on("click", ".delete-plugin", function() {
+    var item = $(this).closest(".item");
+    var file_name = item.find("a.load-plugin").data("file-uri");
+
+    if ( confirm("Are you sure you want to delete " + file_name + "?") ) {    
+      $.ajax({
+        url: "/bedrock-ide/api/plugin/" + file_name,
+        method: "DELETE",
+        success: function(data) {
+          if ( data.status == "success" ) {
+            $(".plugin-list-header").next(".plugins-list").remove();
+            get_plugins_list();
+            bedrock_status_message_set("success", "Plugin deleted successfully.");
+          }
+          else {
+            bedrock_status_message_set("error", data.message);
+          }
+        },
+        error: function(xhr,status,error) {
+          bedrock_status_message_set("error", error);
         }
       });
     }
@@ -308,76 +716,9 @@ $(document).ready(function() {
   });
 
   //settings related code
-  $("#bedrock_settings_form").form({
-    inline: true,
-    fields: {
-      document_root: {
-        identifier: "document_root",
-        rules: [
-          {
-            type   : "empty",
-            prompt : "Please enter document root"
-          }
-        ]
-      },
-      config_path_root: {
-        identifier: "config_path_root",
-        rules: [
-          {
-            type   : "empty",
-            prompt : "Please enter config path root"
-          }
-        ]
-      },
-      plugin_path: {
-        identifier: "plugin_path",
-        rules: [
-          {
-            type   : "empty",
-            prompt : "Please enter plugin path"
-          }
-        ]
-      },
-      perl5lib: {
-        identifier: "perl5lib",
-        rules: [
-          {
-            type   : "empty",
-            prompt : "Please enter perl5lib"
-          }
-        ]
-      },
-      port: {
-        identifier: "port",
-        rules: [
-          {
-            type   : "empty",
-            prompt : "Please enter port"
-          }
-        ]
-      },
-      host_name: {
-        identifier: "host_name",
-        rules: [
-          {
-            type   : "empty",
-            prompt : "Please enter host name"
-          }
-        ]
-      },
-      index_page: {
-        identifier: "index_page",
-        rules: [
-          {
-            type   : "empty",
-            prompt : "Please enter index page"
-          }
-        ]
-      }
-    }
-  });
-
+  
   $(document).on("click", ".bedrock-settings", function() {
+    $(".bedrock-settings-status").html("");
     get_config();
     $(".bedrock-settings-modal").modal("setting", "closable", false).modal("show");
   });
@@ -387,15 +728,14 @@ $(document).ready(function() {
   });
 
   $(".submit-settings-modal").click(function() {
-    if ($("#bedrock_settings_form").form("is valid")) {
-      //submit as ajax
-      alert("ready to submit");
-    }
+    $(".bedrock-settings-status").html("");
+    save_config();
   });
 
   //new file
 
   $("#bedrock_newfile_form").form({
+    keyboardShortcuts: false,
     inline: true,
     fields: {
       file_name: {
@@ -410,8 +750,9 @@ $(document).ready(function() {
     }
   });
 
-  $(document).on("click", ".new-file", function() {
-    $(".bedrock_newfile_form").form("clear");
+  $(document).on("click", ".new-file", function(e) {
+    e.stopPropagation();
+    $("#bedrock_newfile_form").form("clear");
     $(".bedrock-newfile-modal").modal("setting", "closable", false).modal("show");
   });
 
@@ -419,11 +760,68 @@ $(document).ready(function() {
     $(".bedrock-newfile-modal").modal("hide");
   });
 
-  $(".submit-newfile-modal").click(function() {
+  $(".submit-newfile-modal").click(function(e) {
+    e.preventDefault();
+    $("#bedrock_newfile_form").submit();
+  });
+
+  $("#bedrock_newfile_form").submit(function(e) {
+    e.preventDefault();
     if ($("#bedrock_newfile_form").form("is valid")) {
-      //submit as ajax
-      alert("ready to submit");
+      new_file_content("", $("#file_name").val(), "", "file");
+      $(".bedrock-newfile-modal").modal("hide");
     }
+    return false;
+  });
+
+  //new plugin
+
+  $("#bedrock_newplugin_form").form({
+    inline: true,
+    fields: {
+      plugin_name: {
+        identifier: "plugin_name",
+        rules: [
+          {
+            type   : "empty",
+            prompt : "Please enter plugin name"
+          }
+        ]
+      },
+      binding_name: {
+        identifier: "binding_name",
+        rules: [
+          {
+            type   : "empty",
+            prompt : "Please enter binding name"
+          }
+        ]
+      }
+    }
+  });
+
+  $(document).on("click", ".new-plugin", function(e) {
+    e.stopPropagation();
+    $("#bedrock_newplugin_form").form("clear");
+    $(".bedrock-newplugin-modal").modal("setting", "closable", false).modal("show");
+  });
+
+  $(".close-newplugin-icon, .close-newplugin-modal").click(function() {
+    $(".bedrock-newplugin-modal").modal("hide");
+  });
+
+  $(document).on("click", ".submit-newplugin-modal", function(e) {
+    e.stopPropagation();
+    $("#bedrock_newplugin_form").submit();
+  });
+
+  $("#bedrock_newplugin_form").submit(function(e) {
+    e.preventDefault();
+    if ($("#bedrock_newplugin_form").form("is valid")) {
+      new_file_content("", $("#plugin_name").val(), $("#binding_name").val(), "plugin");
+      $(".bedrock-newplugin-modal").modal("hide");
+    }
+    return false;
   });
 
 });

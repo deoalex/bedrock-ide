@@ -18,7 +18,7 @@
 
   <!-- side bar -->
 
-  <div class="ui vertical visible wide sidebar" id="file_list" style="background-color: #000;">
+  <div class="ui vertical visible wide sidebar" id="file_list">
     <div class="logo-div">
       <a class="ui logo icon image" href="/bedrock-ide/index.roc">
         <img src="img/bedrock_logo.png" alt="bedrock image" class="bedrock-logo">
@@ -52,9 +52,39 @@
     </div> 
 
     <div class="main ui container">
-      <div class="ui right dividing rail" style="padding: 0 0 0 2rem;">
-        <div class="ui basic segment" style="padding-left: 0px;">        
-          <xinclude --file="bedrock_help.inc">
+      <div class="ui right dividing rail right-side-rail">
+        <div class="ui basic segment no-padding-left">        
+          <div class="ui relaxed divided list bedrock-help-tags">
+            <div class="item">
+              <i class="tags icon"></i>
+              <div class="content">
+                <div class="header">Tags</div>              
+                <div class="ui animated list bedrock-help-tag-list"></div>
+              </div><!-- .content -->
+            </div><!-- .item -->
+          </div><!-- .bedrock-help-tags -->
+        </div><!-- .segment -->
+        <div class="ui basic segment no-padding-left">  
+          <div class="ui relaxed divided list bedrock-help-plugins">
+            <div class="item">
+              <i class="plug icon"></i>
+              <div class="content">
+                <div class="header">Plugins</div>              
+                <div class="ui animated list bedrock-help-plugin-list"></div>
+              </div><!-- .content -->
+            </div><!-- .item -->
+          </div><!-- .bedrock-help-plugins -->
+        </div><!-- .segment -->
+        <div class="ui basic segment no-padding-left">  
+          <div class="ui relaxed divided list bedrock-help-app-plugins">
+            <div class="item">
+              <i class="plug icon"></i>
+              <div class="content">
+                <div class="header">Application Plugins</div>              
+                <div class="ui animated list bedrock-help-app-plugin-list"></div>
+              </div><!-- .content -->
+            </div><!-- .item -->
+          </div><!-- .bedrock-help-app-plugins -->
         </div><!-- .segment -->
       </div><!-- .rail -->
 
@@ -70,7 +100,7 @@
         </a>
       </div>
 
-      <div class="ui error message bedrock-error-info"></div>
+      <div class="ui message bedrock-status-info"></div>
 
       <div class="main_tab_div">
         <input type="hidden" id="tab_cnt" name="tab_cnt" value="0">  
@@ -80,19 +110,19 @@
         <div id="cursorDetails" class="ui basic segment"></div>
         <div id="fileLength" class="ui basic right floated"></div>
       </div>
+
     </div><!-- .main .ui .container -->
 
   </div><!-- .pusher -->
 
-  <div class="ui modal bedrock-help-modal">
+  <div class="ui large long modal bedrock-help-modal">
     <div class="header">
-      Modal Title
       <i class="close icon close-help-icon"></i>
+      <div class="header-text"></div>      
     </div>
-    <div class="image content">
-      <div class="description">
-        A description can appear on the right
-      </div>
+    <div class="content">
+      <div class="ui message modal-status-info"></div>
+      <div class="description"></div>
     </div>
     <div class="actions">
       <div class="ui button close-help-modal">OK</div>
@@ -105,6 +135,7 @@
       <i class="close icon close-settings-icon"></i>
     </div>
     <div class="content">
+      <div class="ui message modal-status-info"></div>
       <form id="bedrock_settings_form" name="bedrock_settings_form" class="ui form">
         <div class="field">
           <label for="document_root">DOCUMENT_ROOT</label>
@@ -157,7 +188,36 @@
     </div>
     <div class="actions">
       <div class="ui red button close-newfile-modal"><i class="remove icon"></i>Cancel</div>
-      <div class="ui green button submit-newfile-modal"><i class="checkmark icon"></i>Save</div>    
+      <div class="ui green button submit-newfile-modal"><i class="checkmark icon"></i>Create</div>    
+    </div>
+  </div>
+
+  <div class="ui modal bedrock-newplugin-modal">
+    <div class="header">
+      New File
+      <i class="close icon close-newplugin-icon"></i>
+    </div>
+    <div class="content">
+      <form id="bedrock_newplugin_form" name="bedrock_newplugin_form" class="ui form">
+        <div class="field">
+          <label for="plugin_name">Plugin Name</label>
+          <input type="text" id="plugin_name" name="plugin_name" placeholder="Plugin Name" size="60">
+        </div>
+        <div class="field">
+          <label for="binding_name">Binding Name</label>
+          <input type="text" id="binding_name" name="binding_name" placeholder="Binding Name" size="60">
+        </div>
+      </form><!-- ui form -->
+    </div>
+    <div class="actions">
+      <div class="ui red button close-newplugin-modal"><i class="remove icon"></i>Cancel</div>
+      <div class="ui green button submit-newplugin-modal"><i class="checkmark icon"></i>Create</div>    
+    </div>
+  </div>
+
+  <div class="ui page inverted dimmer bedrock-dimmer">
+    <div class="content">
+      <div class="ui text loader">Loading</div>
     </div>
   </div>
 

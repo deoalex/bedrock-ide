@@ -1,3 +1,5 @@
+/* middle container */
+
 .main.container,
 .masthead > .container {
   position: relative;
@@ -18,6 +20,7 @@
 
 .main.container {
   margin-right: 387px !important;
+  min-height: 2000px;
 }
 
 .masthead.segment {
@@ -46,9 +49,7 @@
   margin: 0em;
 }
 
-.bedrock-logo {
-  width: 150px;
-}
+/* tab */
 
 .file-menu {
   margin-top: 1rem !important;
@@ -60,7 +61,11 @@
 }
 
 .main-file-content {
-  min-height: 650px;
+  xmin-height: 650px;
+}
+
+.file_list_tab {
+  flex-wrap: wrap;
 }
 
 .file_list_tab a.item {
@@ -86,17 +91,8 @@
   border-top: none;
 }
 
-.bedrock-help {
-  font-size: 16px !important;
-}
-
-.bedrock-help .item {
-  margin: 3px;
-}
-
-.bedrock-help a {
-  margin-top: 10px !important;
-  margin-bottom: 10px !important;
+.editor-marker {
+  background-color: red;
 }
 
 #cursorDetails {
@@ -110,11 +106,72 @@
   width: 49%;
 }
 
+/* bedrock-help tag */
+
+.bedrock-help-tags,
+.bedrock-help-plugins,
+.bedrock-help-app-plugins {
+  font-size: 16px !important;
+}
+
+.bedrock-help-tags .item,
+.bedrock-help-plugins .item,
+.bedrock-help-app-plugins .item {
+  margin: 3px;
+}
+
+.bedrock-help-tags a,
+.bedrock-help-plugins a,
+.bedrock-help-app-plugins a {
+  margin-top: 10px !important;
+  margin-bottom: 10px !important;
+}
+
+.bedrock-help-tags .item div.item,
+.bedrock-help-plugins .item div.item,
+.bedrock-help-app-plugins .item div.item {
+  margin-bottom: 0px !important;
+  padding-bottom: 0px !important;
+}
+
+.bedrock-help-tag-list,
+.bedrock-help-plugin-list,
+.bedrock-help-app-plugin-list {
+  display: none;
+}
+
+.bedrock-help-tags .header:first-child,
+.bedrock-help-plugins .header:first-child,
+.bedrock-help-app-plugins .header:first-child {
+  cursor: pointer;
+}
+
+/* modal */
+
 .close-help-icon,
 .close-settings-icon,
-.close-newfile-icon {
+.close-newfile-icon,
+.close-newplugin-icon {
   float: right;
   cursor: pointer;
+}
+
+/* side bar */
+
+.sidebar {
+  background-color: #000;
+}
+
+.bedrock-logo {
+  width: 150px;
+}
+
+.logo-div {
+  margin: 10px;
+}
+
+.header.load-folder {
+  margin-left: 5px !important;
 }
 
 .sidebar a.item,
@@ -125,31 +182,6 @@
 
 .sidebar .header {
   cursor: pointer;
-}
-
-.bedrock-help .item div.item {
-  margin-bottom: 0px !important;
-  padding-bottom: 0px !important;
-}
-
-.bedrock-error-info {
-  clear: both;
-  display: none;
-  text-align: center;
-}
-
-.header.load-folder {
-  margin-left: 5px !important;
-}
-
-.files-list {
-  padding-top: 5px;
-}
-
-/* side bar */
-
-.logo-div {
-  margin: 10px;
 }
 
 .files-div,
@@ -170,19 +202,22 @@
   cursor: pointer;
 }
 
-.delete-file {
+.delete-file,
+.delete-plugin {
   float: right;
   cursor: pointer;
   margin-right: 10px !important;
 }
 
-.files-list .item a {
+.files-list .item a,
+.plugins-list .item a {
   color: #fff;
   padding: 5px;
   font-size: 16px;
 }
 
-.files-list .item {
+.files-list .item,
+.plugins-list .item {
   padding-top: 5px !important;
   padding-bottom: 5px !important;
 }
@@ -192,4 +227,30 @@
 .bedrock-settings {
   float: right;
   cursor: pointer;
+}
+
+.right-side-rail {
+  padding: 0 0 0 2rem !important;
+  min-height: 800px;
+}
+
+/* settings */
+
+.bedrock-settings-status {
+  margin: 10px;
+  text-align: center;
+}
+
+/* common */
+
+.no-padding-left {
+  padding-left: 0px !important;
+}
+
+.bedrock-status-info,
+.modal-status-info {
+  clear: both;
+  display: none;
+  text-align: center;
+  font-weight: bold;
 }
