@@ -169,7 +169,18 @@ $ curl -X POST --data "plugin=Foo&binding=foo" http://localhost:8080/plugin
 
 `PUT /plugin/{plugin-name}`
 
-*Saves the plugin script.*
+*Saves the plugin script.  Note that the `message` key in the response
+will contain an object rather than a text string.  The object will
+contain two keys:*
+
++ `error` -> error message if any when the plugin is compiled
++ `lines` -> an array of line numbers where errors have occurred
+
+*Reported line numbers are subject to all of the idiosyncracies and
+nuances associated with `perl`'s error reporting.  As always, read
+the error messages carefully and use your noggin.*
+
+** jQuery (AJAX) example:**
 
 ```
 $.ajax({url: '/bedrock-ide/api/plugin/Foo',
@@ -178,16 +189,23 @@ $.ajax({url: '/bedrock-ide/api/plugin/Foo',
 	contentType: 'plain/text',
 	dataType: 'json',
 	success: funciont(data) {
+	  var message = data.message;
 	  if ( data.status == "success" ) {
-	    alert("woohoo!");
+	    alert("woohoo, you roc(k)!");
 	  }
 	  else {
-	    alert("boohoo!");
-
+	    alert("you have an error: " + message.error);
+	    alert("lines in error: " + message.lines.join(","));
           }
         }
        });
        
+```
+
+**curl Example:**
+
+```
+$ curl -X PUT -H 'Content-Type: plain/text' --data-binary @Foo.pm http://localhost:8080/plugin/Foo
 ```
 
 `DELETE /plugin/{plugin-name}`
@@ -206,11 +224,29 @@ $ curl -X DELETE http://localhost:8080/plugin/Foo
 
 `GET /plugin/config/{plugin-name}`
 
-Retrieve the plugin configuation (as a JSON object).
+*Retrieve the plugin configuation (as a JSON object).*
+
+**curl Example:**
+
+```
+$ curl -s http://localhost:8080/plugin/config/Foo
+```
 
 `POST /plugin/config/{plugin-name}`
 
-*Save a plugin configuation.*
+*Save a plugin configuration.*
+
+**curl Example:**
+
+```
+$ curl -s -o Foo.json http://localhost:8080/plugin/config/Foo
+```
+
+...then
+
+```
+$ curl -X POST -H 'Content-Type: application/json' --data-binary @Foo.json http://localhost:8080/plugin/config/Foo
+```
 
 ### /config
 
