@@ -3,10 +3,9 @@
 This is the README file for the `bedrock-ide` project.
 
 `bedrock-ide` is a companion project to the web development framework
-Bedrock.  It is a intended to be used by developers in a development
-environment.  `bedrock-ide` provides basic wiki-like editing of web
-pages while maintaining versioning information on files that have been
-"committed".
+Bedrock.  It is a intended to be used by developers in a localhost
+development environment.  `bedrock-ide` provides basic wiki-like
+editing of web pages and Perl modules.
 
 `bedrock-ide` is intended to be used by those learning Bedrock or
 those interested in developing Bedrock applications using a
