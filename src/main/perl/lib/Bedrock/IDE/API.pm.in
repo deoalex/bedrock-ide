@@ -9,8 +9,12 @@ use Bedrock::IDE::Config qw/$CONFIG $DOCUMENT_ROOT $PLUGIN_PATH $CONFIG_PATH_ROO
 use Bedrock::IDE::Docs;
 
 use Data::Dumper;
+use File::Copy;
 use Log::Log4perl;
 use Scalar::Util qw/reftype/;
+use List::MoreUtils qw/uniq/;
+use JSON;
+
 use IPC::Run3;
 
 Bedrock::IDE::API->mk_accessors(qw/cgi path api_path/);
@@ -191,7 +195,7 @@ sub get_config {
   my $self = shift;
   
   my $cgi = shift;
-  my $path = shift;
+  my $path = shift || '';
 
   my $logger = Log::Log4perl::get_logger();
   
@@ -375,9 +379,11 @@ sub put_plugin {
   my $logger = Log::Log4perl::get_logger();
   
   $path =~s/^\/plugin//;
+  my $plugin_name = $path;
   
   my $plugin_path = $CONFIG->{PLUGIN_PATH} || '@libdir@/bedrock/perl5';
   $path = $plugin_path .  '/BLM/Startup/' . $path . '.pm';
+  my $text = $cgi->param('PUTDATA');
   
   eval {
     # save the original
@@ -385,7 +391,8 @@ sub put_plugin {
     $logger->debug("path: $path");
 
     open (my $fh, ">$path") or die "could not write [$path]";
-    $fh->print($cgi->param('PUTDATA'));
+    $logger->debug($text);
+    $fh->print($text);
     $fh->close;
   
     $logger->debug("path: $path");
@@ -396,15 +403,15 @@ sub put_plugin {
       if ( $CONFIG->{PERL5LIB} ) {
 	$perl5lib = '-I ' . join(' -I ', split ':', $CONFIG->{PERL5LIB});
       }
-      else {
-	$perl5lib = '-I @bedrockdir@/lib/bedrock/perl5';
-      }
+      
+      $perl5lib .= ' -I @bedrockdir@/lib/bedrock/perl5 -I @bedrockdir@/lib/bedrock/perl5/Bedrock/Text ';
     
       $logger->debug("perl5lib: $perl5lib");
     
       my $err_code;
       my ($in, $out, $err);
-    
+      my @line_no;
+      
       eval {
 	my $cmd = '@perlrun@' . " -wc $perl5lib $path";
       
@@ -418,6 +425,10 @@ sub put_plugin {
       
 	if ( $err_code ) {
 	  $logger->debug("err_code: $err_code [$!] [$err] [$out]");
+	  while ($err =~/$plugin_name\.pm line (\d+)/gs ) {
+	    push @line_no, $1;
+	  }
+	  @line_no = uniq sort { $a <=> $b } @line_no;
 	}
 	else {
 	  $logger->debug("stdout: [$out] stderr: [$err]");
@@ -429,7 +440,10 @@ sub put_plugin {
       if ( $err_code || $@ ) {
 	# restore last known good file...
 	move($path . "~", $path) if -e $path . '~';
-	die $@ || $err;
+	if ( @line_no) {
+	  $logger->debug("errors on lines: " . join("\n", @line_no));
+	}
+	die $@ || { error => $err, lines => \@line_no };
       }
     }
   };
@@ -656,8 +670,8 @@ sub get_plugin_doc {
       $result =  $result->{$plugin} ? $docs->pod($result->{$plugin} . '.pm') : undef;
     }
     else {
-      my @startup_blms = grep { /^Startup:/ } sort keys %$result;
-      my @blms = grep { ! /^Startup:/ } sort keys %$result;
+      my @startup_blms = grep { /Startup::/ } sort keys %$result;
+      my @blms = grep { ! /Startup::/ } sort keys %$result;
       $result = { 'application-plugins' => \@startup_blms,
 		  'plugins' => \@blms
 		};
