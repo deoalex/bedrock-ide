@@ -125,19 +125,37 @@ to the `DOCUMENT_ROOT` defined in the Bedrock IDE configuration file.*
 
 ### /file
 
-`GET /file/{path}`
-
 *Create, update, delete, a file*
 
-Returns the file text.
+`GET /file/{path}`
+
+*Returns the file text.*
+
+**curl Example:**
+
+```
+$ curl -s -o index.roc http://localhost:8080/file/index.roc 
+```
 
 `POST /file/{path}`
 
-Saves the file text.
+*Saves the file text.*
+
+**curl Example:**
+
+```
+$ curl -s -X POST -H 'Content-type: text/plain' --data-binary @index.roc http://localhost:8080/file/index.roc 
+```
 
 `DELETE /file/{path}`
 
 *Deletes the file.*
+
+**curl Example:**
+
+```
+$ curl -s -X DELETE http://localhost:8080/file/index.roc 
+```
 
 ### /plugin
 
@@ -147,6 +165,12 @@ Saves the file text.
 
 *Returns the plugin text. Plugins are found in by the IDE by looking
  in the `PLUGIN_PATH` defined in the Bedrock IDE configuration file.*
+
+**curl Example:**
+
+```
+$ curl -s -o Foo.pm http://localhost:8080/plugin/Foo
+```
 
 `POST /plugin`
 
