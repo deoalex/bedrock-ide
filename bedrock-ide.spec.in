@@ -21,6 +21,7 @@ Group: 		Development/Tools
 
 Requires:       bedrock
 Requires:       perl(HTTP::Server::Simple)
+Requires:       perl(Class::Accessor::Fast)
 
 BuildArch:      noarch
 
@@ -36,6 +37,7 @@ BuildArch:      noarch
 %define _libexecdir     %{_prefix}/libexec
 %define _sbindir        %{_prefix}/sbin
 %define _includedir     %{_prefix}/include
+%define _perl5libdir    %{_prefix}/lib/bedrock/perl5
 
 %description
 bedrock-ide is a web development environment written in
@@ -47,7 +49,8 @@ visit: http://www.openbedrock.net
 
 %build
 %{configure} --with-apache-layout=RedHat \
-             --with-perl-includes=/usr/lib/bedrock/perl5:/usr/lib/bedrock/perl5/Bedrock
+             --with-perl-includes=/usr/lib/bedrock/perl5:/usr/lib/bedrock/perl5/Bedrock \
+             --with-perl5libdir=/usr/lib/bedrock/perl5
 make
 
 %install
@@ -73,3 +76,4 @@ rm -rf %{buildroot}
 %{_libexecdir}/bedrock-ide.pl
 %{_sysconfdir}/init.d/bedrock-ided
 %{_mandir}
+%{_perl5libdir}

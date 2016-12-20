@@ -39,8 +39,8 @@ Alias /bedrock-ide @datadir@/bedrock-ide/htdocs
 
 <Directory @datadir@/bedrock-ide/htdocs>
    AcceptPathInfo On
-   DirectorySlash Off
-   Options -Indexes
+   Options +Indexes
+   DirectIndex index.roc
 
    Order allow,deny
    Allow from all
