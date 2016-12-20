@@ -52,11 +52,11 @@ $(document).ready(function() {
     var tab_segment = $("<div>").addClass("ui bottom attached active tab segment")
                         .attr("data-tab", "tab-item" + + $("#tab_cnt").val());
 
-    var editor = $("<div>").addClass("editor")
+    var edit = $("<div>").addClass("editor")
                     .attr("id", "editor" + $("#tab_cnt").val())
                     .attr("data-file-name", file_name)
                     .attr("data-file-type", file_type);
-    $(editor).appendTo(tab_segment);
+    $(edit).appendTo(tab_segment);
 
     $(tab_segment).appendTo(".main_tab_div");
 
@@ -91,7 +91,14 @@ $(document).ready(function() {
       $("#fileLength").html("<label> #Lines: " + editor.session.getLength() + "</label>");        
     });
 
+    editor.on("change", function() {
+      if(!editor.session.getUndoManager().isClean()) {
+        $(edit).attr("data-is-updated", "1");
+      }
+    });
+
     editor.setValue(data);
+    $("body").animate({ scrollTop: "0px" }, 500);
     editor.gotoLine(1);
   }
 
@@ -116,13 +123,14 @@ $(document).ready(function() {
   }
 
   function save_file_content(file_content, file_name, file_type) {  
-    var uri = "/bedrock-ide/api/" + file_type + "/" + file_name;    
+    var uri = "/bedrock-ide/api/" + file_type + "/" + file_name;   
+
     $.ajax({
       url: uri,
       method: "PUT",
       contentType: "text/plain",
-      dataType: "json",
       data: file_content,
+      dataType: 'json',
       success: function(data) {
         if ( data.status == "success" ) {
           if (file_type == "plugin") {
@@ -136,28 +144,37 @@ $(document).ready(function() {
           if (file_type == "file") {
             bedrock_status_message_set("error", data.message);
           }
-          else {            
-            var current_editor = $("div.tab.active").find(".editor").attr("id");
-            var editor = ace.edit(current_editor);
-            editor.session.setOption("useWorker", false);            
+          else {
             var lines = "";
-            var line_marker_collection = [];
-            $.each(data.message.lines, function(index) {              
-              var line_num = data.message.lines[index];
-              if (lines == "") {
-                lines = line_num;
-              }
-              else {
-                lines += ", " + line_num;
-              }
-              line_marker = {};
-              line_marker["row"] = line_num - 1;
-              line_marker["column"] = "0";
-              line_marker["type"] = "error";              
-              line_marker_collection.push(line_marker);
-            });
-            editor.getSession().setAnnotations(line_marker_collection);
-            bedrock_status_message_set("error", "<p>" + data.message.error + "</p><p>Please check line no: " + lines + "</p>");            
+            if (typeof(data.message.lines) != "undefined") {    
+              var current_editor = $("div.tab.active").find(".editor").attr("id");
+              var editor = ace.edit(current_editor);
+              editor.session.setOption("useWorker", false);              
+              var line_marker_collection = [];
+              $.each(data.message.lines, function(index) {              
+                var line_num = data.message.lines[index];
+                if (lines == "") {
+                  lines = line_num;
+                }
+                else {
+                  lines += ", " + line_num;
+                }
+                line_marker = {};
+                line_marker["row"] = line_num - 1;
+                line_marker["column"] = "0";
+                line_marker["type"] = "error";              
+                line_marker_collection.push(line_marker);
+              });
+              editor.getSession().setAnnotations(line_marker_collection);
+            }
+            var msg= "";
+            if (lines != "") {
+              msg = "<p>" + data.message.error + "</p><p>Please check line no: " + lines + "</p>";
+            }
+            else {
+              msg = "<p>" + data.message.error + "</p>";
+            }
+            bedrock_status_message_set("error", msg);            
           }
         }
       },
@@ -377,23 +394,33 @@ $(document).ready(function() {
   }
 
   function new_file_content(file_content, file_name, binding_name, file_type) {
+    var method_type, content_type;
     if (file_type == "file") {
       var uri = "/bedrock-ide/api/" + file_type + "/" + file_name;
+      method_type = "PUT";
+      data_value = "";
+      content_type = "text/plain";
     }
     else if (file_type == "plugin") {
-      var uri = "/bedrock-ide/api/" + file_type + "/" + file_name + "/" + binding_name;
+      var uri = "/bedrock-ide/api/" + file_type;
+      method_type = "POST";
+      data_value = 
+          { 
+           "plugin"  : file_name,
+           "binding" : binding_name
+          };
+      content_type = "application/x-www-form-urlencoded; charset=UTF-8";
     }
     
     $.ajax({
       url: uri,
-      method: "PUT",
-      contentType: "text/plain",
-      dataType: "json",
-      data: file_content,
+      method: method_type,
+      contentType: content_type,
+      data: data_value,
       success: function(data) {
         if ( data.status == "success" ) {
           $(".main_tab_div, .file-menu").css("display", "block");
-          add_new_tab("", file_name, file_type); 
+          //add_new_tab("", file_name, file_type);           
           if (file_type == "file") {
             $(".file-list-header").next(".files-list").remove();
             get_files_list(false);
@@ -404,6 +431,7 @@ $(document).ready(function() {
             get_plugins_list();
             bedrock_status_message_set("success", "Plugin created successfully.");
           }
+          get_file_content(file_name, file_type);
         }
         else {
           bedrock_status_message_set("error", data.message);
@@ -565,15 +593,34 @@ $(document).ready(function() {
     $(".plugins-list:first").transition("toggle");
   });
 
-  $(document).on("click", ".close-tab", function() {
-    var data_value = $(this).closest("a").data("tab");
-    $("*[data-tab=" + data_value + "]").remove();
-    $(".file_list_tab a:first").click();
-    if($(".file_list_tab a").size() == "0") {
-      $(".file_list_tab").remove();
-      $(".main_tab_div, .file-menu").css("display", "none");
-      $("#cursorDetails, #fileLength").html("");
+  $(document).on("click", ".close-tab", function(e) {
+    e.preventDefault();
+    var current_editor = $("div.tab.active").find(".editor").attr("id");  
+    var is_updated = $("#" + current_editor).data("is-updated");
+    var file_name = $("#" + current_editor).data("file-name");
+
+    var close_flag = false;
+    
+    if (is_updated == "1") {
+      if ( confirm("Are you sure you want to close " + file_name + " before save ?") ) { 
+        close_flag = true;
+      }
     }
+    else {
+      close_flag = true;
+    }
+
+    if(close_flag) {
+      var data_value = $(this).closest("a").data("tab");
+      $("*[data-tab=" + data_value + "]").remove();
+      $(".file_list_tab a:first").click();
+      if($(".file_list_tab a").size() == "0") {
+        $(".file_list_tab").remove();
+        $(".main_tab_div, .file-menu").css("display", "none");
+        $("#cursorDetails, #fileLength").html("");
+      }
+    }
+
   });
 
   $(".bedrock-help-tags .header:first").click(function(e) { 
@@ -647,6 +694,7 @@ $(document).ready(function() {
     var current_editor = $("div.tab.active").find(".editor").attr("id");
     var file_name = $("#" + current_editor).data("file-name");
     var file_type = $("#" + current_editor).data("file-type");
+    $("#" + current_editor).removeData("is-updated").removeAttr("data-is-updated");
     var editor = ace.edit(current_editor);
     save_file_content(editor.getValue(), file_name, file_type);
   });
