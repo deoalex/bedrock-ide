@@ -27,8 +27,8 @@ files in the webserver's document root as well as Perl modules you
 might use as part of your application.  In other words, you (or
 someone else) can write files and scripts to your server.**
 
-If you do decide, **after being warned not to**, use Bedrock IDE over the
-internet, you should consider some or all of these security
+If you do decide, **after being warned not to**, to use Bedrock IDE
+over the internet, you should consider some or all of these security
 measures in addition to some I have not even thought of.
 
 1. Use a sensible username and password by replacing the default
@@ -37,6 +37,16 @@ measures in addition to some I have not even thought of.
 firewall on your server or modifying the Apache configuration.
 3. Run your Apache server on a non-standard port to further obfuscate
 your presence.
+
+**Sample Apache IP Restriction**
+
+```
+<Directory /usr/share/bedrock-ide/htdocs>
+Order allow,deny
+Allow from 192.168.1.0/24
+Allow from 127
+</Directory>
+```
 
 # Getting Started
 
