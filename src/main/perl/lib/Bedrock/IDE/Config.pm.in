@@ -20,20 +20,22 @@ use vars qw/@EXPORT_OK/;
 
 @EXPORT_OK = qw/$IDE_CONFIG $CONFIG $DOCUMENT_ROOT $CONFIG_PATH_ROOT $PORT $PLUGIN_PATH $INDEX_PAGE $PID_FILE $PERL5LIB $TAGX/;
 
-$IDE_CONFIG = Bedrock::XML->new('@libdir@/bedrock-ide/config/bedrock-ide.xml' );
-$CONFIG = $IDE_CONFIG->{'bedrock-ide'}; # user modifiable configuration
-
-$DOCUMENT_ROOT = $CONFIG->{DOCUMENT_ROOT} || '/var/www/html';
-$CONFIG_PATH_ROOT = $CONFIG->{config_path} || '/var/www';
-$PLUGIN_PATH = $CONFIG->{PLUGIN_PATH};
-$INDEX_PATE = $CONFIG->{INDEX_PAGE};
-
-$PORT = $IDE_CONFIG->{port} || '8080';
-$PID_FILE = $IDE_CONFIG->{pidfile} || '/var/run/bedrock-ide.pid';
-$PERL5LIB = $IDE_CONFIG->{PERL5LIB};
-
-if ( -e "$CONFIG_PATH_ROOT/config/tagx.xml" ) {
-  $TAGX = Bedrock::XML->new("$CONFIG_PATH_ROOT/config/tagx.xml");
+INIT {
+  $IDE_CONFIG = Bedrock::XML->new('@libdir@/bedrock-ide/config/bedrock-ide.xml' );
+  $CONFIG = $IDE_CONFIG->{'bedrock-ide'}; # user modifiable configuration
+  
+  $DOCUMENT_ROOT = $CONFIG->{DOCUMENT_ROOT} || '/var/www/html';
+  $CONFIG_PATH_ROOT = $CONFIG->{config_path} || '/var/www';
+  $PLUGIN_PATH = $CONFIG->{PLUGIN_PATH};
+  $INDEX_PATE = $CONFIG->{INDEX_PAGE};
+  
+  $PORT = $IDE_CONFIG->{port} || '8080';
+  $PID_FILE = $IDE_CONFIG->{pidfile} || '/var/run/bedrock-ide.pid';
+  $PERL5LIB = $IDE_CONFIG->{PERL5LIB};
+  
+  if ( -e "$CONFIG_PATH_ROOT/config/tagx.xml" ) {
+    $TAGX = Bedrock::XML->new("$CONFIG_PATH_ROOT/config/tagx.xml");
+  }
 }
 
 # can only be called as a class method
@@ -57,4 +59,5 @@ sub restore {
     die "no restore file\n";
   }
 }
+
 1;
