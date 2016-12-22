@@ -115,6 +115,7 @@ sub dispatch {
 sub _get_listing {
   my $path = shift;
   my $ext = shift || '';
+  my $mode = shift; # defined = executable
   
   my $logger = Log::Log4perl::get_logger();
   $logger->debug(sprintf("path: %s ext: %s", $path, $ext));
@@ -126,10 +127,14 @@ sub _get_listing {
     while ( my $file = readdir $dh ) {
       $logger->debug("$file");
       
-      next if $file =~/^\.\.?$/ || ($ext && $file !~/\.$ext$/); 
+      next if $file =~/^\.\.?$/;
     
       if ( -f $path . '/' . $file ) {
-	push @file_list, $file;
+	next if $ext && $file !~/$ext$/;
+	
+	if ( ! defined $mode || -x $path . '/' . $file ) {
+	  push @file_list, $file;
+	}
       }
       elsif (-d $path . '/' . $file ) {
 	push @file_list, { $file => [] };
@@ -402,26 +407,32 @@ sub get_script {
 
   my $logger = Log::Log4perl::get_logger();
 
-  die "no SCRIPT_DIR set\n"
-    unless $CONFIG->{SCRIPT_DIR};
+  die "no SCRIPT_PATH set\n"
+    unless $CONFIG->{SCRIPT_PATH};
   
-  my $SCRIPT_DIR = $CONFIG->{SCRIPT_DIR};
+  my $SCRIPT_PATH = $CONFIG->{SCRIPT_PATH};
   
   $path =~s/^\/script//;
-  $path = $SCRIPT_DIR . $path;
-
-  $logger->debug("$path");
   
-  my $text;
-
-  eval {
-    open (my $fh, "<$path") or die "could not open file [$path]";
-    local $/;
-    $text = <$fh>;
-    close $fh;
-  };
+  my $result;
     
-  return _set_result($@ ? undef : $text, $@);
+  if ( $path ) {
+    $path = $SCRIPT_PATH . $path;
+
+    $logger->debug("$path");
+    
+    eval {
+      open (my $fh, "<$path") or die "could not open file [$path]";
+      local $/;
+      $result = <$fh>;
+      close $fh;
+    };
+  }
+  else {
+    $result = _get_listing($SCRIPT_PATH, undef, 1);
+  }
+  
+  return _set_result($@ ? undef : $result, $@);
 }
 
 # POST /script
@@ -434,10 +445,10 @@ sub post_script {
   my $logger = Log::Log4perl::get_logger();
   my $text = $cgi->param('POSTDATA') || $cgi->param('PUTDATA');
   
-  my $SCRIPT_DIR = $CONFIG->{SCRIPT_DIR};
+  my $SCRIPT_PATH = $CONFIG->{SCRIPT_PATH};
     
   $path =~s/^\/file//;
-  $path = $SCRIPT_DIR . $path;
+  $path = $SCRIPT_PATH . $path;
 
   $logger->debug("path: [$path]");
   $logger->debug("text: [$text]");
@@ -464,10 +475,10 @@ sub delete_script {
 
   my $logger = Log::Log4perl::get_logger();
   
-  my $SCRIPT_DIR = $CONFIG->{SCRIPT_DIR};
+  my $SCRIPT_PATH = $CONFIG->{SCRIPT_PATH};
 
   $path =~s/^\/file//;
-  $path = $SCRIPT_DIR . $path;
+  $path = $SCRIPT_PATH . $path;
 
   $logger->debug("$path");
 
@@ -791,13 +802,15 @@ sub delete_file {
 # GET /list
 sub list {
   my $self = shift;
+  my $dir = shift;
+  my $mode = shift;
   
   my $cgi = $self->cgi;
   my $path = $self->path;
 
   my $logger = Log::Log4perl::get_logger();
   
-  my $WORKING_DIRECTORY = $CONFIG->{WORKING_DIRECTORY} || $CONFIG->{DOCUMENT_ROOT};
+  my $WORKING_DIRECTORY = $dir || $CONFIG->{WORKING_DIRECTORY} || $CONFIG->{DOCUMENT_ROOT};
   
   $path =~s/^\/list//;
   $path = $WORKING_DIRECTORY . $path;
@@ -805,7 +818,7 @@ sub list {
   $logger->debug("WORKING_DIRECTORY: $WORKING_DIRECTORY path: $path");
 
   my $listing = eval {
-    _get_listing($path, $cgi->param('ext'));
+    _get_listing($path, $cgi->param('ext'), $mode);
   };
   
   $logger->debug(Dumper($listing));
