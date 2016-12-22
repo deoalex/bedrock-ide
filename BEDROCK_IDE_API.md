@@ -288,6 +288,9 @@ configuration changes.*
 + `HOST_NAME`
 + `INDEX_PAGE`
 + `PORT`
++ `WORKING_DIRECTORY`
++ `SCRIPT_PATH`
++ `BUILD_SCRIPT`
 
 `POST /config`
 
