@@ -13,10 +13,14 @@
   <object name="bedrock-ide">
     <scalar name="PERL5LIB">@bedrockdir@/lib/bedrock/perl5</scalar>
     <scalar name="PLUGIN_PATH">@bedrockdir@/lib/bedrock/perl5</scalar>
+    <scalar name="SCRIPT_PATH">/home/rlauer</scalar>
+
     <scalar name="CONFIG_PATH_ROOT">@bedrockdir@/lib/bedrock</scalar>
     <scalar name="PORT">8080</scalar>
     <scalar name="DOCUMENT_ROOT">/var/www/html</scalar>
     <scalar name="HOST_NAME"></scalar>
     <scalar name="INDEX_PAGE">index.roc</scalar>
+    <scalar name="WORKING_DIRECTORY">/var/www/html</scalar>
+    <scalar name="BUILD_SCRIPT">foo.sh</scalar>
   </object>
 </object>
