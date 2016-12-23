@@ -53,11 +53,11 @@ my %DISPATCH = (
 		# /plugin-doc
 		'GET'   . ' ' . '/plugin-doc' => \&get_plugin_doc,
 
-		# /script
-		'GET'     . ' ' . '/script' => \&get_script,
-		'POST'    . ' ' . '/script' => \&post_script,
-		'PUT'     . ' ' . '/script' => \&post_script,
-		'DELETE'  . ' ' . '/script' => \&delete_script,
+		# /build-script
+		'GET'     . ' ' . '/build-script' => \&get_build_script,
+		'POST'    . ' ' . '/build-script' => \&post_build_script,
+		'PUT'     . ' ' . '/build-script' => \&post_build_script,
+		'DELETE'  . ' ' . '/build-script' => \&delete_build_script,
 
 		# /build
 		'GET'     . ' ' . '/build' => \&build,
@@ -217,12 +217,17 @@ sub _set_result {
 sub get_config {
   my $self = shift;
   
-  my $cgi = shift;
-  my $path = shift || '';
+  my $cgi = $self->cgi;
+  my $path = $self->path;
 
   my $logger = Log::Log4perl::get_logger();
   
   $logger->debug("$path");
+  
+  if  ( $cgi->param('reload') ) {
+    $logger->info("Reeloading configuration...");
+    Bedrock::IDE::Config::init();
+  }
   
   return _set_result(_devolve($CONFIG));
 }
@@ -251,7 +256,20 @@ sub post_config {
     else {
       die "no content or invalid content type: must be application/json\n";
     }
-  
+    
+    unless ( $CONFIG->{PROJECT_PATH} ) {
+      $CONFIG->{PROJECT_PATH} = $CONFIG->{DOCUMENT_ROOT};
+    }
+    
+    unless ( $CONFIG->{SCRIPT_PATH} ) {
+      $CONFIG->{SCRIPT_PATH} = $CONFIG->{PROJECT_ROOT}
+	unless $CONFIG->{PROJECT_ROOT} eq $CONFIG->{DOCUMENT_ROOT};
+    }
+    
+    if ( $CONFIG->{DOCUMENT_ROOT} eq '/' ) {
+      die "invalid DOCUMENT_ROOT\n";
+    }
+    
     foreach (qw/DOCUMENT_ROOT CONFIG_PATH_ROOT PLUGIN_PATH PERL5LIB PORT/) {
       unless ( exists $config->{$_} ) {
 	$logger->error("missing config variable $_");
@@ -276,10 +294,6 @@ sub post_config {
       else {
 	die "invalid configuration variable $_";
       }
-    }
-    
-    if ( -d $config->{DOCUMENT_ROOT} eq '/' ) {
-      die "DOCUMENT_ROOT cannot be /";
     }
   
     $CONFIG = $config;
@@ -392,103 +406,70 @@ sub get_plugin {
   return _set_result($@ ? undef : $data, $@);
 }
 
-sub sse {
-  my $line = shift;
-
-  print STDOUT "data:$line\n\n";
-}
-
-# GET /script
-sub get_script {
-  my $self = shift;
+# Let's restrict SCRIPT_PATH to some path from /home
+sub _check_script_path {
+  die "set SCRIPT_PATH first\n"
+    unless defined $CONFIG->{SCRIPT_PATH};
   
-  my $cgi = $self->cgi;
-  my $path = $self->path;
+  die "invalid SCRIPT_PATH\n"
+     unless $CONFIG->{SCRIPT_PATH} =~/^\/home\//;
 
-  my $logger = Log::Log4perl::get_logger();
-
-  die "no SCRIPT_PATH set\n"
-    unless $CONFIG->{SCRIPT_PATH};
-  
-  my $SCRIPT_PATH = $CONFIG->{SCRIPT_PATH};
-  
-  $path =~s/^\/script//;
-  
-  my $result;
-    
-  if ( $path ) {
-    $path = $SCRIPT_PATH . $path;
-
-    $logger->debug("$path");
-    
-    eval {
-      open (my $fh, "<$path") or die "could not open file [$path]";
-      local $/;
-      $result = <$fh>;
-      close $fh;
-    };
-  }
-  else {
-    $result = _get_listing($SCRIPT_PATH, undef, 1);
-  }
-  
-  return _set_result($@ ? undef : $result, $@);
+  die "SCRIPT_PATH " . $CONFIG->{SCRIPT_PATH} . " does not exist.\n"
+    unless -d $CONFIG->{SCRIPT_PATH};
 }
 
 # POST /script
-sub post_script {
+sub post_build_script {
   my $self = shift;
   
   my $cgi = $self->cgi;
-  my $path = $self->path;
-
+  
   my $logger = Log::Log4perl::get_logger();
   my $text = $cgi->param('POSTDATA') || $cgi->param('PUTDATA');
-  
-  my $SCRIPT_PATH = $CONFIG->{SCRIPT_PATH};
-    
-  $path =~s/^\/file//;
-  $path = $SCRIPT_PATH . $path;
 
-  $logger->debug("path: [$path]");
-  $logger->debug("text: [$text]");
+  _check_script_path();
+  
+  my $build_script = $CONFIG->{SCRIPT_PATH} . '/' . $CONFIG->{BUILD_SCRIPT};
+
+  unless ( -e $build_script || $text ) {
+    my $p = $CONFIG->{SCRIPT_PATH};
+    
+    my $script =<<eos;
+#!/bin/bash
+
+# typical build script...YMMV...
+
+set -x
+
+cd %s
+
+if [ $(pwd) != "%s ]; then
+  echo "Could not cd to %s"
+  exit;
+fi
+
+if autoreconf -i --force; then
+   if test -e ./configure; then
+      ./configure
+      make && make install
+   fi
+fi
+eos
+    $text = sprintf($script, $p, $p, $p);
+  }
   
   eval {
-    open (my $fh, ">$path") or die "could not open file [$path]";
+    open (my $fh, ">$build_script") or die "could not open file [$build_script]";
     $fh->print($text);
     close $fh;
   };
 
   # make executable
-  chmod 0755, $path
-    if -s $path;
+  chmod 0755, $build_script
+    if -s $build_script;
 
   return _set_result($@ ? undef : $text, $@);
 }
-
-# DELETE /script
-sub delete_script {
-  my $self = shift;
-  
-  my $cgi = $self->cgi;
-  my $path = $self->path;
-
-  my $logger = Log::Log4perl::get_logger();
-  
-  my $SCRIPT_PATH = $CONFIG->{SCRIPT_PATH};
-
-  $path =~s/^\/file//;
-  $path = $SCRIPT_PATH . $path;
-
-  $logger->debug("$path");
-
-  if ( -e $path ) {
-    unlink $path;
-  }
-  
-  return _set_result($@ ? undef : $path, $@);
-}
-  
 
 sub build {
   my $self = shift;
@@ -497,9 +478,8 @@ sub build {
 
   my $cgi = $self->cgi;
 
-  die "set SCRIPT_PATH first\n"
-    unless defined $CONFIG->{SCRIPT_PATH};
-
+  _check_script_path();
+  
   die "set BUILD_SCRIPT first\n"
     unless defined $CONFIG->{BUILD_SCRIPT};
   
@@ -724,19 +704,37 @@ sub delete_plugin {
 # GET /file
 sub get_file {
   my $self = shift;
-  
-  my $cgi = $self->cgi;
+
   my $path = $self->path;
-
-  my $logger = Log::Log4perl::get_logger();
-  
-  my $WORKING_DIRECTORY = $CONFIG->{WORKING_DIRECTORY} || $CONFIG->{DOCUMENT_ROOT};
-  
   $path =~s/^\/file//;
-  $path = $WORKING_DIRECTORY . $path;
 
-  $logger->debug("$path");
+  my $PROJECT_PATH = $CONFIG->{PROJECT_PATH} || $CONFIG->{DOCUMENT_ROOT};
+  $path = $PROJECT_PATH . $path;
+ 
+  _get_file($path);
+}
+
+sub get_build_script {
+  my $self = shift;
   
+  _check_script_path;
+
+  my $path = $CONFIG->{SCRIPT_PATH} . '/' . $CONFIG->{BUILD_SCRIPT};
+  
+  _get_file($path);
+}
+
+sub delete_build_script {
+  _check_script_path;
+  
+  my $script = $CONFIG->{SCRIPT_PATH} . '/' . $CONFIG->{BUILD_SCRIPT};
+
+  unlink $script if -e $script;
+}
+
+sub _get_file {
+  my $path = shift;
+    
   my $text;
 
   eval {
@@ -759,10 +757,10 @@ sub post_file {
   my $logger = Log::Log4perl::get_logger();
   my $text = $cgi->param('POSTDATA') || $cgi->param('PUTDATA');
   
-  my $WORKING_DIRECTORY = $CONFIG->{WORKING_DIRECTORY} || $CONFIG->{DOCUMENT_ROOT};
+  my $PROJECT_PATH = $CONFIG->{PROJECT_PATH} || $CONFIG->{DOCUMENT_ROOT};
   
   $path =~s/^\/file//;
-  $path = $WORKING_DIRECTORY . $path;
+  $path = $PROJECT_PATH . $path;
 
   $logger->debug("path: [$path]");
   $logger->debug("text: [$text]");
@@ -785,10 +783,10 @@ sub delete_file {
 
   my $logger = Log::Log4perl::get_logger();
   
-  my $WORKING_DIRECTORY = $CONFIG->{WORKING_DIRECTORY} || $CONFIG->{DOCUMENT_ROOT};
+  my $PROJECT_PATH = $CONFIG->{PROJECT_PATH} || $CONFIG->{DOCUMENT_ROOT};
   
   $path =~s/^\/file//;
-  $path = $WORKING_DIRECTORY . $path;
+  $path = $PROJECT_PATH . $path;
 
   $logger->debug("$path");
 
@@ -810,12 +808,12 @@ sub list {
 
   my $logger = Log::Log4perl::get_logger();
   
-  my $WORKING_DIRECTORY = $dir || $CONFIG->{WORKING_DIRECTORY} || $CONFIG->{DOCUMENT_ROOT};
+  my $PROJECT_PATH = $dir || $CONFIG->{PROJECT_PATH} || $CONFIG->{DOCUMENT_ROOT};
   
   $path =~s/^\/list//;
-  $path = $WORKING_DIRECTORY . $path;
+  $path = $PROJECT_PATH . $path;
   
-  $logger->debug("WORKING_DIRECTORY: $WORKING_DIRECTORY path: $path");
+  $logger->debug("PROJECT_PATH: $PROJECT_PATH path: $path");
 
   my $listing = eval {
     _get_listing($path, $cgi->param('ext'), $mode);
