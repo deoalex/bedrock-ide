@@ -71,10 +71,13 @@ $(document).ready(function() {
     var editor = ace.edit("editor" + $("#tab_cnt").val());  
     editor.setTheme("ace/theme/chrome");
     if (file_type == "file") {
-      editor.getSession().setMode("ace/mode/bedrock");
+      editor.getSession().setMode("ace/mode/php");
     }
     else if (file_type == "plugin") {
       editor.getSession().setMode("ace/mode/perl");
+    }
+    else if(file_type == "script") {
+      editor.getSession().setMode("ace/mode/sh");
     }
     editor.$blockScrolling = Infinity;
     editor.getSession().setTabSize(2);
@@ -123,7 +126,13 @@ $(document).ready(function() {
   }
 
   function save_file_content(file_content, file_name, file_type) {  
-    var uri = "/bedrock-ide/api/" + file_type + "/" + file_name;   
+    var uri;
+    if (file_type == "script") {
+      uri = "/bedrock-ide/api/build-script";
+    }
+    else {
+      uri = "/bedrock-ide/api/" + file_type + "/" + file_name;   
+    }
 
     $.ajax({
       url: uri,
@@ -309,6 +318,11 @@ $(document).ready(function() {
             $(input).appendTo($(div));
             $(div).appendTo($("#bedrock_settings_form"));
           });
+          
+          var edit_script_icon = $("<i>").addClass("edit large icon add_edit_script");
+          var field = $("#BUILD_SCRIPT").parent("div.field");
+          $(edit_script_icon).appendTo(field);
+
           $(".bedrock-settings-modal").modal("refresh");
         }
         else {
@@ -337,8 +351,10 @@ $(document).ready(function() {
         if ( data.status == "success" ) {
           bedrock_ide_config = data.data;
           modal_status_message_set("success", "Settings saved successfully.");
-          var item = $(".files-div");
-          item.find(".files-list").remove();      
+          var files_div = $(".files-div");
+          files_div.find(".files-list").remove();   
+          var plugins_div = $(".plugins-div");
+          plugins_div.find(".plugins-list").remove();
           get_files_list(false); 
           get_plugins_list();           
         }
@@ -480,6 +496,54 @@ $(document).ready(function() {
     });
   }
 
+  function get_build_script() {
+    var uri = "/bedrock-ide/api/build-script";
+    $.ajax({
+      url: uri,          
+      type: "GET",
+      success: function(data) {
+        if(data.status == "success") {          
+          data = data.data;
+          add_new_tab(data, bedrock_ide_config.BUILD_SCRIPT, "script"); 
+        }
+        else {
+          var error = data.message;
+          var regExp = /no BUILD_SCRIPT found at/;
+          if (regExp.test(error)) {
+            new_build_script();
+          }
+          else {
+            modal_status_message_set("error", data.message);
+          }
+        }
+      },
+      error: function(xhr,status,error) {
+        modal_status_message_set("error", error);
+      }
+    });
+  }
+
+  function new_build_script() {
+    var uri = "/bedrock-ide/api/build-script";
+    $.ajax({
+      url: uri,          
+      type: "POST",
+      contentType: "text/plain",
+      success: function(data) {
+        if(data.status == "success") {          
+          data = data.data;
+          add_new_tab(data, bedrock_ide_config.BUILD_SCRIPT, "script"); 
+        }
+        else {
+          modal_status_message_set("error", error);
+        }
+      },
+      error: function(xhr,status,error) {
+        modal_status_message_set("error", error);
+      }
+    });
+  }
+
   /********************************/
 
   $("#file_list").sidebar();
@@ -523,9 +587,12 @@ $(document).ready(function() {
   $(".hide-sidebar-btn").click(function() {
     if ($("#file_list").hasClass("visible")) {
       $("#file_list").removeClass("visible");
+      $("#screen_width").val($(".main.ui.container").css("width"));
+      $(".main.ui.container").css("width", "75%");
     }
     else {
       $("#file_list").addClass("visible");
+      $(".main.ui.container").css("width", $("#screen_width").val());
     }
   });
 
@@ -737,7 +804,7 @@ $(document).ready(function() {
   
   $(document).on("click", ".bedrock-settings", function() {
     $(".modal-status-info").removeClass("success error").html("").hide();
-    $("#bedrock_settings_form").html();
+    $("#bedrock_settings_form").html("");
     get_config();    
   });
 
@@ -892,5 +959,12 @@ $(document).ready(function() {
       }
     }
   });
+
+  $(document).on("click", ".add_edit_script", function() {
+    save_config();
+    get_build_script();
+    $(".main_tab_div, .file-menu").css("display", "block");
+    $(".bedrock-settings-modal").modal("hide");
+  }); 
 
 });
