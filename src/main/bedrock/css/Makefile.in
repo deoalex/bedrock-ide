@@ -227,6 +227,7 @@ top_srcdir = @top_srcdir@
 SUBDIRS = .
 bedrock_idedir = @datadir@/bedrock-ide
 javascriptdir = $(bedrock_idedir)/javascript
+snippetsdir = $(bedrock_idedir)/javascript/snippets
 fontawesome_fontsdir = $(bedrock_idedir)/fonts
 dist_css_DATA = \
     main.css \
