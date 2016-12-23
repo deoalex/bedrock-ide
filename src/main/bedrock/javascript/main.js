@@ -71,7 +71,7 @@ $(document).ready(function() {
     var editor = ace.edit("editor" + $("#tab_cnt").val());  
     editor.setTheme("ace/theme/chrome");
     if (file_type == "file") {
-      editor.getSession().setMode("ace/mode/php");
+      editor.getSession().setMode("ace/mode/bedrock");
     }
     else if (file_type == "plugin") {
       editor.getSession().setMode("ace/mode/perl");
