@@ -443,7 +443,7 @@ set -x
 
 cd %s
 
-if [ $(pwd) != "%s ]; then
+if [ \$(pwd) != "%s ]; then
   echo "Could not cd to %s"
   exit;
 fi
