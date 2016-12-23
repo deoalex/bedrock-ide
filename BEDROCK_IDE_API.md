@@ -292,6 +292,14 @@ configuration changes.*
 + `SCRIPT_PATH`
 + `BUILD_SCRIPT`
 
+If you send a CGI variable named `reload`, the config file will be
+reloaded from the config path
+(F<@bedrock_libdir@/bedrock-ide/config/bedrock-ide.xml>).
+
+```
+$ curl -s http://localhost:8080/config?reload=1
+```
+
 `POST /config`
 
 *Send a JSON object that represents the configuration.*
@@ -319,7 +327,7 @@ $ curl -s http://localhost:8080/tag/sqlconnect
 
 ### /plugin-doc
 
-*Returns a JSON objec containing lists of Bedrock Application Plugins
+*Returns a JSON object containing lists of Bedrock Application Plugins
  and Bedrock Plugins or the plugin documentation.*
 
 `GET /plugin-doc`
@@ -335,3 +343,23 @@ $ curl -s http://localhost:8080/tag/sqlconnect
 ```
 $ curl -s http://localhost:8080/plugin-doc/BLM::Startup::UserSession
 ```
+
+### /build-script
+
+*Create, update, retrieve the build script contents. *
+ 
+`GET /build-script`
+
+*Returns the text of a script file.*
+
+**curl example:**
+
+```
+$ curl -s http://localhost:8080/build-script
+```
+
+`POST /build-script`
+
+*Write the contents of the request body as a script in the
+SCRIPT_PATH.  The script is made executable.  Yes, this is
+dangerous.*
