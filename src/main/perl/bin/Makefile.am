@@ -55,7 +55,7 @@ $(G1MANPAGES): %.1man : %.pl
 	--center="$(PACKAGE)" \
 	--name="$${tname}" \
 	--release=$(PACKAGE)-$(VERSION) \
-	--section=1man > "$${target_name}"
+	--section=1man > "$${target_name}" || true
 
 .PHONY: clean-local
 clean-local:
