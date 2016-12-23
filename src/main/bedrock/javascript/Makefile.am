@@ -3,6 +3,7 @@ SUBDIRS = .
 include $(top_srcdir)/directories.inc
 
 dist_javascript_DATA = \
-    main.js
+    *.js \
+    snippets/*.js
 
 all:
