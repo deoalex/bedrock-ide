@@ -17,7 +17,7 @@ use List::MoreUtils qw/uniq/;
 use JSON;
 use IO::Handle;
 
-# use IPC::Run3;
+use IPC::Run3 qw/run3/;
 
 Bedrock::IDE::API->mk_accessors(qw/cgi path api_path/);
 
@@ -648,6 +648,7 @@ sub post_plugin {
   
   my $plugin = $cgi->param('plugin');
   my $binding = $cgi->param('binding') || lc($plugin);
+  
   my ($in, $out, $err);
   my $err_code;
 
@@ -655,12 +656,18 @@ sub post_plugin {
     $logger->debug(sprintf("plugin: %s binding: %s", $plugin, $binding));
     untie *STDERR;
     $SIG{CHLD} = 'DEFAULT';
+    
     my $cmd = '@bindir@/bedrock-plugin '. " -x -r -d $plugin_path -c $config_path -m $plugin -b $binding";
     $logger->debug("cmd: $cmd");
-    run3($cmd, \$in, \$out, \$err);
+    
+    run3($cmd, undef, \$out, \$err);
+
     $err_code = $?;
     tie *STDERR, 'Bedrock::IDE::Trapper';
-
+    
+    $logger->info("err: $err");
+    $logger->info("out: $err");
+    
     unless ( $err_code ) {
       $plugin = "$plugin_path/BLM/Startup/${plugin}.pm";
       open (my $fh, "<$plugin") or die "could not create plugin [$plugin]";
