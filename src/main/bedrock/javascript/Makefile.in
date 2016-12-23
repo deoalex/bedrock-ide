@@ -31,8 +31,9 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-DIST_COMMON = $(dist_javascript_DATA) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(top_srcdir)/directories.inc
+DIST_COMMON = $(dist_javascript_DATA) $(dist_snippets_DATA) \
+	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(top_srcdir)/directories.inc
 subdir = src/main/bedrock/javascript
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/autotools/ads_PERL_INCLUDES.m4 \
@@ -77,8 +78,9 @@ am__nobase_list = $(am__nobase_strip_setup); \
 am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__installdirs = "$(DESTDIR)$(javascriptdir)"
-DATA = $(dist_javascript_DATA)
+am__installdirs = "$(DESTDIR)$(javascriptdir)" \
+	"$(DESTDIR)$(snippetsdir)"
+DATA = $(dist_javascript_DATA) $(dist_snippets_DATA)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 AM_RECURSIVE_TARGETS = $(RECURSIVE_TARGETS:-recursive=) \
@@ -227,10 +229,62 @@ top_srcdir = @top_srcdir@
 SUBDIRS = .
 bedrock_idedir = @datadir@/bedrock-ide
 javascriptdir = $(bedrock_idedir)/javascript
+snippetsdir = $(bedrock_idedir)/javascript/snippets
 fontawesome_fontsdir = $(bedrock_idedir)/fonts
+dist_snippets_DATA = \
+    snippets/bedrock.js \
+    snippets/css.js \
+    snippets/html.js \
+    snippets/javascript.js \
+    snippets/json.js \
+    snippets/perl.js \
+    snippets/plain_text.js \
+    snippets/sh.js \
+    snippets/text.js \
+    snippets/xml.js
+
 dist_javascript_DATA = \
-    *.js \
-    snippets/*.js
+    ace.js \
+    bedrock-ide.js \
+    ext-beautify.js \
+    ext-chromevox.js \
+    ext-elastic_tabstops_lite.js \
+    ext-emmet.js \
+    ext-error_marker.js \
+    ext-keybinding_menu.js \
+    ext-language_tools.js \
+    ext-linking.js \
+    ext-modelist.js \
+    ext-old_ie.js \
+    ext-searchbox.js \
+    ext-settings_menu.js \
+    ext-spellcheck.js \
+    ext-split.js \
+    ext-static_highlight.js \
+    ext-statusbar.js \
+    ext-textarea.js \
+    ext-themelist.js \
+    ext-whitespace.js \
+    keybinding-emacs.js \
+    keybinding-vim.js \
+    main.js \
+    mode-bedrock.js \
+    mode-css.js \
+    mode-html.js \
+    mode-javascript.js \
+    mode-json.js \
+    mode-perl.js \
+    mode-plain_text.js \
+    mode-sh.js \
+    mode-text.js \
+    mode-xml.js \
+    theme-chrome.js \
+    worker-bedrock.js \
+    worker-css.js \
+    worker-html.js \
+    worker-javascript.js \
+    worker-json.js \
+    worker-xml.js
 
 all: all-recursive
 
@@ -285,6 +339,26 @@ uninstall-dist_javascriptDATA:
 	test -n "$$files" || exit 0; \
 	echo " ( cd '$(DESTDIR)$(javascriptdir)' && rm -f" $$files ")"; \
 	cd "$(DESTDIR)$(javascriptdir)" && rm -f $$files
+install-dist_snippetsDATA: $(dist_snippets_DATA)
+	@$(NORMAL_INSTALL)
+	test -z "$(snippetsdir)" || $(MKDIR_P) "$(DESTDIR)$(snippetsdir)"
+	@list='$(dist_snippets_DATA)'; test -n "$(snippetsdir)" || list=; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(snippetsdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(snippetsdir)" || exit $$?; \
+	done
+
+uninstall-dist_snippetsDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(dist_snippets_DATA)'; test -n "$(snippetsdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	test -n "$$files" || exit 0; \
+	echo " ( cd '$(DESTDIR)$(snippetsdir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(snippetsdir)" && rm -f $$files
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run `make' without going through this Makefile.
@@ -484,7 +558,7 @@ check: check-recursive
 all-am: Makefile $(DATA)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(javascriptdir)"; do \
+	for dir in "$(DESTDIR)$(javascriptdir)" "$(DESTDIR)$(snippetsdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -532,7 +606,7 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-dist_javascriptDATA
+install-data-am: install-dist_javascriptDATA install-dist_snippetsDATA
 
 install-dvi: install-dvi-recursive
 
@@ -576,7 +650,8 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-dist_javascriptDATA
+uninstall-am: uninstall-dist_javascriptDATA \
+	uninstall-dist_snippetsDATA
 
 .MAKE: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) ctags-recursive \
 	install-am install-strip tags-recursive
@@ -586,14 +661,15 @@ uninstall-am: uninstall-dist_javascriptDATA
 	ctags-recursive distclean distclean-generic distclean-tags \
 	distdir dvi dvi-am html html-am info info-am install \
 	install-am install-data install-data-am \
-	install-dist_javascriptDATA install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs installdirs-am \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic pdf pdf-am ps ps-am tags tags-recursive \
-	uninstall uninstall-am uninstall-dist_javascriptDATA
+	install-dist_javascriptDATA install-dist_snippetsDATA \
+	install-dvi install-dvi-am install-exec install-exec-am \
+	install-html install-html-am install-info install-info-am \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic pdf \
+	pdf-am ps ps-am tags tags-recursive uninstall uninstall-am \
+	uninstall-dist_javascriptDATA uninstall-dist_snippetsDATA
 
 
 all:
