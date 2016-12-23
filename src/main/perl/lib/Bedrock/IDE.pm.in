@@ -1,5 +1,8 @@
 package Bedrock::IDE;
 
+use strict;
+use warnings;
+
 use parent qw/HTTP::Server::Simple::CGI/;
 
 use Bedrock::IDE::API;
@@ -37,7 +40,7 @@ sub handle_request {
     print "HTTP/1.0 404 Not found\r\n";
     print $cgi->header,
       $cgi->start_html('Not found'),
-      $cgi->h1('Not found ' . $path),
+      $cgi->h1('Not found ' . $self->path),
       $cgi->end_html;
   }
 }
