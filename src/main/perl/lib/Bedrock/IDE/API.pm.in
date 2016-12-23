@@ -717,9 +717,12 @@ sub get_file {
 sub get_build_script {
   my $self = shift;
   
-  _check_script_path;
+  _check_script_path();
 
   my $path = $CONFIG->{SCRIPT_PATH} . '/' . $CONFIG->{BUILD_SCRIPT};
+
+  die "no BUILD_SCRIPT set\n"
+    unless -f $path;
   
   _get_file($path);
 }
@@ -729,19 +732,20 @@ sub delete_build_script {
   
   my $script = $CONFIG->{SCRIPT_PATH} . '/' . $CONFIG->{BUILD_SCRIPT};
 
-  unlink $script if -e $script;
+  unlink $script if -f $script;
 }
 
 sub _get_file {
   my $path = shift;
-    
-  my $text;
 
+  my $text;
+  
   eval {
     open (my $fh, "<$path") or die "could not open file [$path]";
     local $/;
     $text = <$fh>;
     close $fh;
+    $text;
   };
     
   return _set_result($@ ? undef : $text, $@);
@@ -756,6 +760,17 @@ sub post_file {
 
   my $logger = Log::Log4perl::get_logger();
   my $text = $cgi->param('POSTDATA') || $cgi->param('PUTDATA');
+  
+  unless ( $text ) {
+    $text =<<eot;
+<!doctype html>
+<html lang="en">
+ <body>
+   <p>Hello World!</p>
+ </body>
+</html>
+eot
+  }
   
   my $PROJECT_PATH = $CONFIG->{PROJECT_PATH} || $CONFIG->{DOCUMENT_ROOT};
   
