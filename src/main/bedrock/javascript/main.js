@@ -32,7 +32,7 @@ $(document).ready(function() {
       $(".modal-status-info").fadeOut(1000, function() {
         $(this).removeClass("success error").empty();
       });
-    }, 5000);
+    }, 100000);
   }
 
   function add_new_tab(data, file_name, file_type) {
@@ -71,7 +71,7 @@ $(document).ready(function() {
     var editor = ace.edit("editor" + $("#tab_cnt").val());  
     editor.setTheme("ace/theme/chrome");
     if (file_type == "file") {
-      editor.getSession().setMode("ace/mode/html");
+      editor.getSession().setMode("ace/mode/php");
     }
     else if (file_type == "plugin") {
       editor.getSession().setMode("ace/mode/perl");
@@ -262,9 +262,11 @@ $(document).ready(function() {
           $.each(data, function(index){
             var list_item = $("<div>").addClass("item");
 
+            var edit = $("<a>").html($("<i>").addClass("setting icon edit-plugin"));            
             var plugin = $("<a>").html(data[index]).addClass("item load-plugin").attr("data-file-uri", data[index]);
             var del = $("<a>").html($("<i>").addClass("trash icon delete-plugin"));     
 
+            $(edit).appendTo(list_item);
             $(plugin).appendTo(list_item);
             $(del).appendTo(list_item);
 
@@ -285,6 +287,7 @@ $(document).ready(function() {
 
   function get_config() {
     //make an ajax call to get config info
+    $(".bedrock-settings-modal").modal("setting", "closable", false).modal("show");
     $.ajax({
       url: "/bedrock-ide/api/config",
       dataType: "json",
@@ -292,13 +295,21 @@ $(document).ready(function() {
         if ( data.status == "success" ) {
           data = data.data;
           bedrock_ide_config = data;
-          $("#document_root").val(data.DOCUMENT_ROOT);
-          $("#config_path_root").val(data.CONFIG_PATH_ROOT);
-          $("#plugin_path").val(data.PLUGIN_PATH);
-          $("#port").val(data.PORT);
-          $("#perl5lib").val(data.PERL5LIB);
-          $("#host_name").val(data.HOST_NAME);
-          $("#index_page").val(data.INDEX_PAGE);
+          $.each(data, function(key, val) {            
+            var div = $("<div>").addClass("field");
+            var label = $("<label>").attr("for", key).html(key);
+            var input = $("<input>").attr({
+              "id" : key,
+              "name" : key,
+              "placeholder" : key,
+              "size": "60",
+              "class": "bedrock-config-inputs"
+            }).val(val);
+            $(label).appendTo($(div));
+            $(input).appendTo($(div));
+            $(div).appendTo($("#bedrock_settings_form"));
+          });
+          $(".bedrock-settings-modal").modal("refresh");
         }
         else {
           modal_status_message_set("error", data.message);
@@ -311,86 +322,35 @@ $(document).ready(function() {
   }
 
   function save_config() {
-    var document_root = $("#document_root").val().trim();
-    var config_path_root = $("#config_path_root").val().trim();
-    var perl5lib = $("#perl5lib").val().trim();
-    var plugin_path = $("#plugin_path").val().trim();
-    var port = $("#port").val().trim();
-    var host_name = $("#host_name").val().trim();
-    var index_page = $("#index_page").val().trim();
+    var config_json = {};
+    $.each($(".bedrock-config-inputs"), function() {        
+      config_json[$(this).attr("id")] = $(this).val();
+    });
     
-    var err_str = '';
-    var fatal = false;
-    
-    if (document_root == "") {
-      err_str += "DOCUMENT_ROOT cannot be blank!\n";
-      $("#document_root").val(bedrock_ide_config.DOCUMENT_ROOT);
-      fatal = true;
-    }
-    
-    if (config_path_root == "") {
-      err_str += "CONFIG_PATH_ROOT cannot be blank!\n";
-      $("#config_path_root").val(bedrock_ide_config.CONFIG_PATH_ROOT);
-      fatal = true;
-    }
-    
-    if (plugin_path == "") {
-      err_str += "PLUGIN_PATH cannot be blank!\n";
-      $("#plugin_path").val(bedrock_ide_config.PLUGIN_PATH);
-      fatal = true;
-    }
-    
-    if (port == "") {
-      err_str += "PORT cannot be blank! Resetting to default.\n";
-      $("#port").val(bedrock_ide_config.PORT);
-    }
-    
-    if (perl5lib == "") {
-      err_str += "WARNING: Your plugins may not compile or execute without PERL5LIB.\n";
-    }
-
-    if (index_page == "") {
-      $("#index_page").val("/index.roc");
-    }
-
-    if (err_str != "") {
-      modal_status_message_set("error", err_str);      
-      if (fatal) {
-        return false;
-      }
-    }
-    else {
-      $.ajax({
-        url: "/bedrock-ide/api/config",
-        method: "POST",
-        contentType: "application/json; charset=utf-8",
-        dataType: "json",
-        data: JSON.stringify({
-            "DOCUMENT_ROOT" : document_root,
-            "CONFIG_PATH_ROOT" : config_path_root,
-            "PERL5LIB" : perl5lib,
-            "PORT" : port,
-            "PLUGIN_PATH" : plugin_path,
-            "HOST_NAME" : host_name,
-            "INDEX_PAGE" : index_page
-        }),
-        success: function(data) {
-          if ( data.status == "success" ) {
-            bedrock_ide_config = data.data;
-            modal_status_message_set("success", "Settings saved successfully.");             
-          }
-          else {
-            modal_status_message_set("error", data.message);             
-            fatal = true;
-          }
-        },
-        error: function() {
-          modal_status_message_set("error", error);         
+    $.ajax({
+      url: "/bedrock-ide/api/config",
+      method: "POST",
+      contentType: "application/json; charset=utf-8",
+      dataType: "json",
+      data: JSON.stringify(config_json),
+      success: function(data) {
+        if ( data.status == "success" ) {
+          bedrock_ide_config = data.data;
+          modal_status_message_set("success", "Settings saved successfully.");
+          var item = $(".files-div");
+          item.find(".files-list").remove();      
+          get_files_list(false); 
+          get_plugins_list();           
         }
-      });
-  
-      return ! fatal;    
-    }
+        else {
+          modal_status_message_set("error", data.message);             
+          fatal = true;
+        }
+      },
+      error: function() {
+        modal_status_message_set("error", error);         
+      }
+    });
   }
 
   function new_file_content(file_content, file_name, binding_name, file_type) {
@@ -419,8 +379,7 @@ $(document).ready(function() {
       data: data_value,
       success: function(data) {
         if ( data.status == "success" ) {
-          $(".main_tab_div, .file-menu").css("display", "block");
-          //add_new_tab("", file_name, file_type);           
+          $(".main_tab_div, .file-menu").css("display", "block");                  
           if (file_type == "file") {
             $(".file-list-header").next(".files-list").remove();
             get_files_list(false);
@@ -526,6 +485,8 @@ $(document).ready(function() {
   $("#file_list").sidebar();
   $(".help_accordion").accordion();
 
+  $(".chk_attr").checkbox();
+
   $(".popup").popup({
     position : "bottom center",
     hoverable  : true,
@@ -557,6 +518,15 @@ $(document).ready(function() {
 
   $.ajaxSetup({
     cache: false
+  });
+
+  $(".hide-sidebar-btn").click(function() {
+    if ($("#file_list").hasClass("visible")) {
+      $("#file_list").removeClass("visible");
+    }
+    else {
+      $("#file_list").addClass("visible");
+    }
   });
 
   $(document).on("click", ".load-file", function(e) {
@@ -766,9 +736,9 @@ $(document).ready(function() {
   //settings related code
   
   $(document).on("click", ".bedrock-settings", function() {
-    $(".bedrock-settings-status").html("");
-    get_config();
-    $(".bedrock-settings-modal").modal("setting", "closable", false).modal("show");
+    $(".modal-status-info").removeClass("success error").html("").hide();
+    $("#bedrock_settings_form").html();
+    get_config();    
   });
 
   $(".close-settings-icon, .close-settings-modal").click(function() {
@@ -865,11 +835,62 @@ $(document).ready(function() {
 
   $("#bedrock_newplugin_form").submit(function(e) {
     e.preventDefault();
-    if ($("#bedrock_newplugin_form").form("is valid")) {
+    if ($("#bedrock_newplugin_form").form("is valid")) {      
       new_file_content("", $("#plugin_name").val(), $("#binding_name").val(), "plugin");
       $(".bedrock-newplugin-modal").modal("hide");
     }
     return false;
+  });
+
+  /* edit plugin */
+
+  $(document).on("click", ".edit-plugin", function(e) {
+    e.preventDefault();
+    $(".bedrock-editplugin-modal").modal("setting", "closable", false).modal("show");
+  });
+
+  $(".close-editplugin-icon, .close-editplugin-modal").click(function() {
+    $(".bedrock-editplugin-additems-modal").modal("hide");
+    $(".bedrock-editplugin-modal").modal("hide");
+  });
+
+  $(document).on("click", ".new-object", function(e){
+    e.preventDefault();
+    $("#bedrock_editplugin_form").form("clear");
+    $(".bedrock-editplugin-additems-modal .object-div").hide();
+    $(".bedrock-editplugin-additems-modal .keyval-div").hide();
+    $(".bedrock-editplugin-additems-modal .list-div").hide();
+    $(".bedrock-editplugin-additems-modal").modal({
+      "closable": false,
+      "allowMultiple": true
+    }).modal("show");
+  });
+
+  $(".close-editplugin-additems-icon, .close-editplugin-additems-modal").click(function() {
+    $(".bedrock-editplugin-additems-modal").modal("hide");
+  });
+
+  $(".chk_attr").checkbox({
+    onChecked: function() {
+      if ($("#chk_list").is(":checked")) {
+        $(".bedrock-editplugin-additems-modal .object-div").hide();
+        $(".bedrock-editplugin-additems-modal .keyval-div").hide();
+        $("#list_values").dropdown({
+          allowAdditions: true
+        });
+        $(".bedrock-editplugin-additems-modal .list-div").show();
+      }
+      else if ($("#chk_keyval").is(":checked")) {
+        $(".bedrock-editplugin-additems-modal .object-div").hide();
+        $(".bedrock-editplugin-additems-modal .list-div").hide();
+        $(".bedrock-editplugin-additems-modal .keyval-div").show();
+      }
+      else if ($("#chk_object").is(":checked")) {
+        $(".bedrock-editplugin-additems-modal .list-div").hide();
+        $(".bedrock-editplugin-additems-modal .keyval-div").hide();
+        $(".bedrock-editplugin-additems-modal .object-div").show();
+      }
+    }
   });
 
 });

@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
   <title>Bedrock IDE</title>
 
-  <link rel="icon" type="image/icon" href="favicon.ico">
+  <!--<link rel="icon" type="image/icon" href="favicon.ico">-->
 
   <!-- css files -->
   <link rel="stylesheet" href="//cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css">
@@ -30,6 +30,10 @@
     <div class="plugins-div">
       <div class="header plugin-list-header">Plugins<i class="plus icon new-plugin"></i></div>
     </div>
+  </div>
+
+  <div class="ui black big launch right attached fixed hide-sidebar-btn"  data-content="show/hide sidebar">
+    <i class="content large icon"></i>
   </div>
 
   <!-- side bar -->
@@ -137,34 +141,6 @@
     <div class="content">
       <div class="ui message modal-status-info"></div>
       <form id="bedrock_settings_form" name="bedrock_settings_form" class="ui form">
-        <div class="field">
-          <label for="document_root">DOCUMENT_ROOT</label>
-          <input type="text" id="document_root" name="document_root" placeholder="DOCUMENT_ROOT" size="60">
-        </div>
-        <div class="field">
-          <label for="config_path_root">CONFIG_PATH_ROOT</label>
-          <input type="text" id="config_path_root" name="config_path_root" placeholder="CONFIG_PATH_ROOT" size="60">
-        </div>
-        <div class="field">
-          <label for="plugin_path">PLUGIN_PATH</label>
-          <input type="text" id="plugin_path" name="plugin_path" placeholder="PLUGIN_PATH" size="60">
-        </div>
-        <div class="field">
-          <label for="perl5lib">PERL5LIB</label>
-          <input type="text" id="perl5lib" name="perl5lib" placeholder="PERL5LIB" size="60">
-        </div>
-        <div class="field">
-          <label for="port">PORT</label>
-          <input type="text" id="port" name="port" placeholder="PORT" size="60">
-        </div>
-        <div class="field">
-          <label for="host_name">HOST_NAME</label>
-          <input type="text" id="host_name" name="host_name" placeholder="HOST_NAME" size="60">
-        </div>
-        <div class="field">
-          <label for="index_page">INDEX_PAGE</label>
-          <input type="text" id="index_page" name="index_page" placeholder="INDEX_PAGE" size="60">
-        </div>
       </form><!-- ui form -->
     </div>
     <div class="actions">
@@ -192,13 +168,13 @@
     </div>
   </div>
 
-  <div class="ui modal bedrock-newplugin-modal">
+  <div class="ui long modal bedrock-newplugin-modal">
     <div class="header">
-      New File
+      New Plugin
       <i class="close icon close-newplugin-icon"></i>
     </div>
     <div class="content">
-      <form id="bedrock_newplugin_form" name="bedrock_newplugin_form" class="ui form">
+      <form id="bedrock_newplugin_form" name="bedrock_newplugin_form" class="ui form new-plugin-form">
         <div class="field">
           <label for="plugin_name">Plugin Name</label>
           <input type="text" id="plugin_name" name="plugin_name" placeholder="Plugin Name" size="60">
@@ -206,12 +182,138 @@
         <div class="field">
           <label for="binding_name">Binding Name</label>
           <input type="text" id="binding_name" name="binding_name" placeholder="Binding Name" size="60">
-        </div>
+        </div>           
       </form><!-- ui form -->
-    </div>
+    </div><!-- .content -->
     <div class="actions">
       <div class="ui red button close-newplugin-modal"><i class="remove icon"></i>Cancel</div>
       <div class="ui green button submit-newplugin-modal"><i class="checkmark icon"></i>Create</div>    
+    </div>
+  </div>
+
+  <div class="ui small modal bedrock-editplugin-modal">
+    <div class="header">
+      Edit Plugin Configuration
+      <i class="close icon close-editplugin-icon"></i>
+    </div>
+    <div class="content">
+      <div class="ui basic segment bedrock-edititems-segment">
+        <div class="objects-div" style="width: 500px; margin: 5px auto;">
+          <div class="header objects-list-header" style="padding-left: 15px; font-size: 16px;">/<a>
+            <i class="plus icon new-object"></i></a>
+          </div>
+          <div class="ui relaxed list objects-list">
+            <div class="item">
+              <div class="header">
+                <a class="item load-object">object1</a>
+                <a><i class="plus icon new-object"></i></a>
+              </div>
+            </div>
+            <div class="item">
+              <a class="item load-object">key1=value1</a>
+            </div>
+            <div class="item">
+              <a class="item load-object">list=["1", "2", "3"]</a>
+            </div>
+            <div class="item">
+              <div class="header">
+                <a class="item load-object">object2</a>
+                <a><i class="plus icon new-object"></i></a>              
+                <div class="ui relaxed list objects-list">
+                  <div class="item">
+                    <a class="item load-object">key1=value1</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><!-- .objects-div -->
+      </div>
+    </div><!-- .content -->
+    <div class="actions">
+      <div class="ui red button close-editplugin-modal"><i class="remove icon"></i>Cancel</div>
+      <div class="ui green button submit-editplugin-modal"><i class="checkmark icon"></i>Update</div>    
+    </div>
+  </div>
+
+  <div class="ui long modal bedrock-editplugin-additems-modal">
+    <div class="header">
+      Edit Plugin - Add Items
+      <i class="close icon close-editplugin-additems-icon"></i>
+    </div>
+    <div class="content">
+      <div class="ui basic segment">
+        <form id="bedrock_editplugin_form" name="bedrock_editplugin_form" class="ui form">          
+          <div class="inline fields">
+            <label>What would you like to add?</label>
+            <div class="field">
+              <div class="ui radio checkbox chk_attr">
+                <input type="radio" id="chk_list" name="chk_items">
+                <label>List</label>
+              </div>
+            </div><!-- field -->
+            <div class="field">
+              <div class="ui radio checkbox chk_attr">
+                <input type="radio" id="chk_keyval" name="chk_items">
+                <label>Key-Val Pair</label>
+              </div>
+            </div><!-- field -->
+            <div class="field">
+              <div class="ui radio checkbox chk_attr">
+                <input type="radio" id="chk_object" name="chk_items">
+                <label>Object</label>
+              </div>
+            </div><!-- field -->
+          </div>
+
+          <div class="list-div">
+            <div class="field">        
+              <label>List</label>
+              <div class="two fields">
+                <div class="field">          
+                  <input type="text" id="list_name" name="list_name" placeholder="Name" size="60">
+                </div>
+                <div class="field">
+                  <div id="list_values" name="list_values" class="ui multiple search selection dropdown">
+                    <input type="hidden" id="list_values_all" name="list_values_all">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Skills</div>
+                    <div class="menu"></div>
+                  </div>
+                </div>                
+              </div><!-- .two fields -->
+            </div><!-- .field -->     
+          </div><!-- .list-div -->
+
+          <div class="keyval-div">
+            <div class="field">        
+              <label>Key-Val Pair</label>
+              <div class="two fields">
+                <div class="field">          
+                  <input type="text" id="key_name" name="key_name" placeholder="Key" size="60">
+                </div>
+                <div class="field">
+                  <input type="text" id="key_value" name="key_value" placeholder="Value" size="60">
+                </div>
+              </div>
+            </div><!-- .field -->
+          </div><!-- .keyval-div -->
+
+          <div class="object-div">
+            <div class="field">
+              <label>Object</label>
+              <div class="field">          
+                <input type="text" id="obj_name" name="obj_name" placeholder="Object" size="60">
+              </div>
+            </div><!-- .field -->
+          </div><!-- .object-div -->
+
+        </form><!-- ui form -->
+      </div><!-- segment -->
+    </div><!-- .content -->
+    <div class="actions">
+      <div class="ui red button close-editplugin-additems-modal"><i class="remove icon"></i>Cancel</div>
+      <div class="ui green button submit-editplugin-additems-modal"><i class="checkmark icon"></i>Add</div>    
     </div>
   </div>
 
@@ -226,9 +328,9 @@
   <!-- js files -->
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
   <script src="//cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ext-language_tools.js"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/theme-chrome.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ext-language_tools.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/theme-chrome.js"></script>
   <script src="javascript/main.js"></script>
 
 </body>
