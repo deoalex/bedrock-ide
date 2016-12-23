@@ -12,10 +12,11 @@
   <!-- css files -->
   <link rel="stylesheet" href="//cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css">
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/bedrock-mode.css">
 
 </head>
 <body>
-
+<!-- <input type="hidden" id="screen_width" name="screen_width"> -->
   <!-- side bar -->
 
   <div class="ui vertical visible wide sidebar" id="file_list">
@@ -328,9 +329,9 @@
   <!-- js files -->
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
   <script src="//cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js"></script>
-  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js"></script>
-  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ext-language_tools.js"></script>
-  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/theme-chrome.js"></script>
+  <script src="javascript/ace.js"></script>
+  <script src="javascript/ext-language_tools.js"></script>
+  <script src="javascript/theme-chrome.js"></script>
   <script src="javascript/main.js"></script>
 
 </body>

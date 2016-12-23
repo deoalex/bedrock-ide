@@ -229,7 +229,8 @@ bedrock_idedir = @datadir@/bedrock-ide
 javascriptdir = $(bedrock_idedir)/javascript
 fontawesome_fontsdir = $(bedrock_idedir)/fonts
 dist_css_DATA = \
-    main.css
+    main.css \
+    bedrock-mode.css
 
 all: all-recursive
 
