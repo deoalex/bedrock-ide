@@ -21,6 +21,21 @@ use vars qw/@EXPORT_OK/;
 @EXPORT_OK = qw/$IDE_CONFIG $CONFIG $DOCUMENT_ROOT $CONFIG_PATH_ROOT $PORT $PLUGIN_PATH $INDEX_PAGE $PID_FILE $PERL5LIB $TAGX/;
 
 INIT {
+  init();
+}
+
+# can only be called as a class method
+sub save {
+  die "Bedrock::IDE::Config::save() only\n" if $_[0] ne 'Bedrock::IDE::Config';
+
+  $IDE_CONFIG->{'bedrock-ide'} = $CONFIG;
+
+  move('@libdir@/bedrock-ide/config/bedrock-ide.xml', '@libdir@/bedrock-ide/config/bedrock-ide.xml~');
+
+  Bedrock::XML::writeXML($IDE_CONFIG, '@libdir@/bedrock-ide/config/bedrock-ide.xml');
+}
+
+sub init {
   $IDE_CONFIG = Bedrock::XML->new('@libdir@/bedrock-ide/config/bedrock-ide.xml' );
   $CONFIG = $IDE_CONFIG->{'bedrock-ide'}; # user modifiable configuration
   
@@ -36,17 +51,6 @@ INIT {
   if ( -e "$CONFIG_PATH_ROOT/config/tagx.xml" ) {
     $TAGX = Bedrock::XML->new("$CONFIG_PATH_ROOT/config/tagx.xml");
   }
-}
-
-# can only be called as a class method
-sub save {
-  die "Bedrock::IDE::Config::save() only\n" if $_[0] ne 'Bedrock::IDE::Config';
-
-  $IDE_CONFIG->{'bedrock-ide'} = $CONFIG;
-
-  move('@libdir@/bedrock-ide/config/bedrock-ide.xml', '@libdir@/bedrock-ide/config/bedrock-ide.xml~');
-
-  Bedrock::XML::writeXML($IDE_CONFIG, '@libdir@/bedrock-ide/config/bedrock-ide.xml');
 }
 
 sub restore {
