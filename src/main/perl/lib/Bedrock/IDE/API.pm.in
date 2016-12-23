@@ -720,12 +720,19 @@ sub get_build_script {
   _check_script_path();
 
   my $path = $CONFIG->{SCRIPT_PATH} . '/' . $CONFIG->{BUILD_SCRIPT};
-
-  die "no BUILD_SCRIPT set\n"
-    unless -f $path;
+  my $text;
+  my $err;
   
-  _get_file($path);
+  eval {
+    die "no BUILD_SCRIPT found at [$path]\n"
+      unless -e $path;
+    
+    ($text, $err) = _get_file($path);
+  };
+
+  return _set_result( defined $text ? $text : undef, $@ || $err);
 }
+    
 
 sub delete_build_script {
   _check_script_path;
@@ -745,7 +752,6 @@ sub _get_file {
     local $/;
     $text = <$fh>;
     close $fh;
-    $text;
   };
     
   return _set_result($@ ? undef : $text, $@);
