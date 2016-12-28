@@ -887,7 +887,7 @@ var XmlHighlightRules = require("./xml_highlight_rules").XmlHighlightRules;
 
 var tagMap = lang.createMap({
     a           : 'anchor',
-    button 	    : 'form',
+    button      : 'form',
     form        : 'form',
     img         : 'image',
     input       : 'form',
@@ -977,7 +977,12 @@ var BedrockLangHighlightRules = function() {
 
     this.$rules = {
         "start" : [
+            docComment.getStartRule("doc-start"),
             {
+                token : "comment", // multi line comment
+                regex : "<!--",
+                next : "comment"
+            }, {
                 token : "bedrock_string", // " string start
                 regex : '"',
                 next : "qqstring"
@@ -1017,7 +1022,7 @@ var BedrockLangHighlightRules = function() {
                 },
                 regex : "\\s\\-\\-\\b[\\w-]+\\b"
             }, {
-            token : "bedrock_operator",
+                token : "bedrock_operator",
                 regex : /=|\+|\s\.\s|\-|\*|\//
             }, {
                 token : "paren.lparen",
@@ -1028,6 +1033,15 @@ var BedrockLangHighlightRules = function() {
             }, {
                 token : "text",
                 regex : "\\s+"
+            }
+        ],
+        "comment" : [
+            {
+                token : "comment",
+                regex : "-->",
+                next : "start"
+            }, {
+                defaultToken : "comment"
             }
         ],
         "qqstring" : [
@@ -1135,90 +1149,6 @@ var MatchingBraceOutdent = function() {};
 }).call(MatchingBraceOutdent.prototype);
 
 exports.MatchingBraceOutdent = MatchingBraceOutdent;
-});
-
-define("ace/mode/bedrock_completions",["require","exports","module"],
-function(require, exports, module) {
-"use strict";
-
-var functionMap = {};
-
-var variableMap = {};
-
-function is(token, type) {
-    return token.type.lastIndexOf(type) > -1;
-}
-
-var BedrockCompletions = function() {};
-
-(function() {
-
-    this.getCompletions = function(state, session, pos, prefix) {
-        var token = session.getTokenAt(pos.row, pos.column);
-
-        if (!token)
-            return [];
-        if (token.type==='identifier')
-            return this.getFunctionCompletions(state, session, pos, prefix);
-        if (is(token, "variable"))
-            return this.getVariableCompletions(state, session, pos, prefix);
-        var line = session.getLine(pos.row).substr(0, pos.column);
-        if (token.type==='string' && /(\$[\w]*)\[["']([^'"]*)$/i.test(line))
-            return this.getArrayKeyCompletions(state, session, pos, prefix);
-
-        return [];
-    };
-
-    this.getFunctionCompletions = function(state, session, pos, prefix) {
-        var functions = Object.keys(functionMap);
-        return functions.map(function(func){
-            return {
-                caption: func,
-                snippet: func + '($0)',
-                meta: "bedrock function",
-                score: Number.MAX_VALUE,
-                docHTML: functionMap[func][1]
-            };
-        });
-    };
-
-    this.getVariableCompletions = function(state, session, pos, prefix) {
-        var variables = Object.keys(variableMap);
-        return variables.map(function(variable){
-            return {
-                caption: variable,
-                value: variable,
-                meta: "bedrock variable",
-                score: Number.MAX_VALUE
-            };
-        });
-    };
-
-    this.getArrayKeyCompletions = function(state, session, pos, prefix) {
-        var line = session.getLine(pos.row).substr(0, pos.column);
-        var variable = line.match(/(\$[\w]*)\[["']([^'"]*)$/i)[1];
-
-        if (!variableMap[variable]) {
-            return [];
-        }
-
-        var keys = [];
-        if (variableMap[variable].type==='array' && variableMap[variable].value)
-            keys = Object.keys(variableMap[variable].value);
-
-        return keys.map(function(key) {
-            return {
-                caption: key,
-                value: key,
-                meta: "bedrock array key",
-                score: Number.MAX_VALUE
-            };
-        });
-    };
-
-}).call(BedrockCompletions.prototype);
-
-exports.BedrockCompletions = BedrockCompletions;
 });
 
 define("ace/mode/folding/cstyle",["require","exports","module","ace/lib/oop","ace/range","ace/mode/folding/fold_mode"],
@@ -2664,132 +2594,68 @@ oop.inherits(Mode, TextMode);
 exports.Mode = Mode;
 });
 
-define("ace/mode/bedrock",["require","exports","module","ace/lib/oop","ace/mode/text","ace/mode/bedrock_highlight_rules","ace/mode/bedrock_highlight_rules","ace/mode/matching_brace_outdent","ace/range","ace/worker/worker_client","ace/mode/bedrock_completions","ace/mode/behaviour/cstyle","ace/mode/folding/cstyle","ace/unicode","ace/mode/html","ace/mode/javascript","ace/mode/css"],
+define("ace/mode/bedrock",["require","exports","module","ace/lib/oop","ace/mode/text","ace/mode/bedrock_highlight_rules","ace/mode/bedrock_highlight_rules","ace/mode/matching_brace_outdent","ace/range","ace/worker/worker_client","ace/mode/behaviour/cstyle","ace/mode/folding/cstyle","ace/unicode","ace/mode/html","ace/mode/javascript","ace/mode/css"],
 function(require, exports, module) {
 "use strict";
 
 var oop = require("../lib/oop");
+var lang = require("../lib/lang");
 var TextMode = require("./text").Mode;
-var BedrockHighlightRules = require("./bedrock_highlight_rules").BedrockHighlightRules;
-var BedrockLangHighlightRules = require("./bedrock_highlight_rules").BedrockLangHighlightRules;
-var MatchingBraceOutdent = require("./matching_brace_outdent").MatchingBraceOutdent;
-var Range = require("../range").Range;
-var WorkerClient = require("../worker/worker_client").WorkerClient;
-var BedrockCompletions = require("./bedrock_completions").BedrockCompletions;
-var CstyleBehaviour = require("./behaviour/cstyle").CstyleBehaviour;
-//var XmlFoldMode = require("./xml").FoldMode;
-//var CStyleFoldMode = require("./folding/cstyle").FoldMode;
-var unicode = require("../unicode");
-var HtmlMode = require("./html").Mode;
 var JavaScriptMode = require("./javascript").Mode;
 var CssMode = require("./css").Mode;
-var voidElements = ["array", "case", "catch", "exec", "flush", "hash", "iif", "include", "null", "open", "pebble", "plugin", "raise", "recordset", "sql", "sqlcommit", "sqlconnect", "sqlrollback", "sqltable", "trace", ];
+var HtmlMode = require("./html").Mode;
+var BedrockHighlightRules = require("./bedrock_highlight_rules").BedrockHighlightRules;
+var XmlBehaviour = require("./behaviour/xml").XmlBehaviour;
+var HtmlFoldMode = require("./folding/html").FoldMode;
+var HtmlCompletions = require("./html_completions").HtmlCompletions;
+var WorkerClient = require("../worker/worker_client").WorkerClient;
+var voidElements = ["array", "case", "catch", "else", "elseif", "exec", "flush", "hash", "iif", "include", "null", "open", "pebble", "plugin", "raise", "recordset", "sql", "sqlcommit", "sqlconnect", "sqlrollback", "sqltable", "trace", "var"];
 var optionalEndTags = [];
 
-var BedrockMode = function(opts) {
-    this.HighlightRules = BedrockLangHighlightRules;
-    this.$outdent = new MatchingBraceOutdent();
-    this.$behaviour = new CstyleBehaviour();
-    this.$completer = new BedrockCompletions();
-    //this.foldingRules = new XmlFoldMode(voidElements, optionalEndTags);
+var Mode = function(options) {
+    this.fragmentContext = options && options.fragmentContext;
+    this.HighlightRules = BedrockHighlightRules;
+    this.$behaviour = new XmlBehaviour();
+    this.$completer = new HtmlCompletions();
+    
+    this.createModeDelegates({
+        "js-": JavaScriptMode,
+        "css-": CssMode,
+        "html-": HtmlMode
+    });
+    
+    this.foldingRules = new HtmlFoldMode(this.voidElements, lang.arrayToMap(optionalEndTags));
 };
-oop.inherits(BedrockMode, TextMode);
+oop.inherits(Mode, TextMode);
 
 (function() {
 
-    this.tokenRe = new RegExp("^["
-        + unicode.packages.L
-        + unicode.packages.Mn + unicode.packages.Mc
-        + unicode.packages.Nd
-        + unicode.packages.Pc + "_]+", "g"
-    );
+    this.blockComment = {start: "<!--", end: "-->"};
 
-    this.nonTokenRe = new RegExp("^(?:[^"
-        + unicode.packages.L
-        + unicode.packages.Mn + unicode.packages.Mc
-        + unicode.packages.Nd
-        + unicode.packages.Pc + "_]|\\s])+", "g"
-    );
-
-
-    this.lineCommentStart = ["//", "#"];
-    this.blockComment = {start: "/*", end: "*/"};
+    this.voidElements = lang.arrayToMap(voidElements);
 
     this.getNextLineIndent = function(state, line, tab) {
-        var indent = this.$getIndent(line);
-
-        var tokenizedLine = this.getTokenizer().getLineTokens(line, state);
-        var tokens = tokenizedLine.tokens;
-        var endState = tokenizedLine.state;
-
-        if (tokens.length && tokens[tokens.length-1].type == "comment") {
-            return indent;
-        }
-
-        if (state == "start") {
-            var match = line.match(/^.*[\{\(\[:]\s*$/);
-            if (match) {
-                indent += tab;
-            }
-        } else if (state == "doc-start") {
-            if (endState != "doc-start") {
-                return "";
-            }
-            var match = line.match(/^\s*(\/?)\*/);
-            if (match) {
-                if (match[1]) {
-                    indent += " ";
-                }
-                indent += "* ";
-            }
-        }
-
-        return indent;
+        return this.$getIndent(line);
     };
 
     this.checkOutdent = function(state, line, input) {
-        return this.$outdent.checkOutdent(line, input);
-    };
-
-    this.autoOutdent = function(state, doc, row) {
-        this.$outdent.autoOutdent(doc, row);
+        return false;
     };
 
     this.getCompletions = function(state, session, pos, prefix) {
         return this.$completer.getCompletions(state, session, pos, prefix);
     };
 
-    this.$id = "ace/mode/bedrock-inline";
-}).call(BedrockMode.prototype);
-
-var Mode = function(opts) {
-    if (opts && opts.inline) {
-        var mode = new BedrockMode();
-        mode.createWorker = this.createWorker;
-        mode.inlineBedrock = true;
-        return mode;
-    }
-    HtmlMode.call(this);
-    this.HighlightRules = BedrockHighlightRules;
-    this.createModeDelegates({
-        "js-": JavaScriptMode,
-        "css-": CssMode,
-        "bedrock-": BedrockMode
-    });
-    //this.foldingRules.subModes["bedrock-"] = new CStyleFoldMode();
-};
-oop.inherits(Mode, HtmlMode);
-
-(function() {
-
     this.createWorker = function(session) {
-        var worker = new WorkerClient(["ace"], "ace/mode/bedrock_worker", "BedrockWorker");
+        if (this.constructor != Mode)
+            return;
+        var worker = new WorkerClient(["ace"], "ace/mode/bedrock_worker", "Worker");
         worker.attachToDocument(session.getDocument());
 
-        if (this.inlineBedrock)
-            worker.call("setOptions", [{inline: true}]);
+        if (this.fragmentContext)
+            worker.call("setOptions", [{context: this.fragmentContext}]);
 
-        worker.on("annotate", function(e) {
+        worker.on("error", function(e) {
             session.setAnnotations(e.data);
         });
 
