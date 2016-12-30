@@ -215,11 +215,10 @@ sub pod {
   my $keep_header = shift;
 
   my (undef, $outfile) = tempfile();
-  
+
   my %options = (
 		 '--infile'   => $file,
 		 '--outfile'  => $outfile,
-		 '--cachedir' => File::Spec->tmpdir(),
 		 '--css'      => $self->css_url()
 		);
 
@@ -234,6 +233,8 @@ sub pod {
     close FILE;
   }
 
+  unlink $outfile;
+  
   unless ( defined $keep_header ) {
     if ( $data =~ /<body>(.*?)<\/body>/s ) {
       $data = $1;
