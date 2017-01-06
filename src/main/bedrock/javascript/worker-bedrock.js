@@ -2078,10 +2078,19 @@ exports.StackItem = StackItem;
 var InputStream = _dereq_('./InputStream').InputStream;
 var EntityParser = _dereq_('./EntityParser').EntityParser;
 
+function isBedrockTag(name) {
+    return name.match("array|case|catch|else|elseif|exec|flush|foreach|hash|if|iif|include"+
+                "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
+                "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
+                "|sqltable|trace|try|unless|var|while");
+}
+
 function isWhitespace(c){
 	return c === " " || c === "\n" || c === "\t" || c === "\r" || c === "\f";
 }
-
+function isAlphaNumeric(c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
 function isAlpha(c) {
 	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
@@ -2092,6 +2101,8 @@ function Tokenizer(tokenHandler) {
 	this._currentToken = null;
 	this._temporaryBuffer = '';
 	this._additionalAllowedCharacter = '';
+    this._stack = [];
+    this._variables = [];
 }
 
 Tokenizer.prototype._parseError = function(code, args) {
@@ -2121,10 +2132,15 @@ Tokenizer.prototype._emitToken = function(token) {
 Tokenizer.prototype._emitCurrentToken = function() {
 	this._state = Tokenizer.DATA;
 	this._emitToken(this._currentToken);
+    this._stack = [];
 };
 
 Tokenizer.prototype._currentAttribute = function() {
 	return this._currentToken.data[this._currentToken.data.length - 1];
+};
+
+Tokenizer.prototype._currentVariable = function() {
+    return this._variables[this._variables.length - 1];
 };
 
 Tokenizer.prototype.setState = function(state) {
@@ -2735,8 +2751,16 @@ Tokenizer.prototype.tokenize = function(source) {
 			tokenizer._parseError('eof-in-tag-name');
 			buffer.unget(data);
 			tokenizer.setState(data_state);
-		} else if (isWhitespace(data)) {
-			tokenizer.setState(before_attribute_name_state);
+		} else if (isWhitespace(data) || data === ":") {
+            if (isBedrockTag(tokenizer._currentToken.name)) {
+                if (data === ":") {
+                    tokenizer._variables.push({value: ""});
+                    tokenizer.setState(bedrock_object_name_state);
+                }
+                else
+                    tokenizer.setState(before_bedrock_content_state);
+            } else
+			    tokenizer.setState(before_attribute_name_state);
 		} else if (isAlpha(data)) {
 			tokenizer._currentToken.name += data.toLowerCase();
 		} else if (data === '>') {
@@ -2754,6 +2778,693 @@ Tokenizer.prototype.tokenize = function(source) {
 		return true;
 	}
 
+////////////////////////////Bedrock Begin///////////////////////////////////////
+
+    /* This is the bit after the <tagname:varname */
+    function bedrock_object_name_state(buffer) {
+        var data = buffer.char();
+        var leavingThisState = true;
+        var shouldEmit = false;
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-object-name");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+            shouldEmit = true;
+        } else if (isAlphaNumeric(data) || data === '-' || data === '_') {
+            tokenizer._currentVariable().value += data.toLowerCase();
+            leavingThisState = false;
+        } else if (data === '>') {
+            shouldEmit = true;
+        } else if (isWhitespace(data)) {
+            tokenizer.setState(before_bedrock_content_state);
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeName += "\uFFFD";
+        } else {
+            tokenizer._parseError("invalid-character-in-object-name", {data: data});
+            tokenizer._currentAttribute().nodeName += data;
+            leavingThisState = false;
+        } 
+
+        if (leavingThisState) {
+            if (shouldEmit)
+                tokenizer._emitCurrentToken();
+        } else {
+            buffer.commit();
+        }
+        return true;
+    }
+
+    function before_bedrock_content_state(buffer) {
+        var data = buffer.char();
+        /* Stack should always be empty coming here */
+        if (tokenizer._stack.length == 0)
+            pushState('bedrock_content');
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-bedrock-tag-contents-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            return true;
+        /* Strings */
+        } else if (data === '"') {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_double_quoted_state);
+        } else if (data === "'") {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_single_quoted_state);
+        /* Q String / Values */
+        } else if (data === 'q') {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_q_state);
+        /* objects */
+        } else if (data === '$') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_object_state);
+        /* Options */
+        } else if (data === '-') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_option_state);
+        } else if (data === '(') {
+            tokenizer.setState(before_bedrock_expression_first_state);
+        } else if (data === '>') {
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_bareword_state);
+        }
+        return true;
+    }
+
+    function before_bedrock_option_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-bedrock-tag-contents-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            setStateByStack();
+        }  else if (data === '-') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_option_name_state);
+        } else if (data === '>') {
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else if (data.matches(/[()]/)) {
+            tokenizer._parseError("invalid-character-in-bedrock-tag", {data: data});
+            tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
+            tokenizer.setState(attribute_name_state);
+        } else {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_bareword_state);
+        }
+        return true;
+    }
+
+    function before_bedrock_option_name_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-option-name-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            setStateByStack();
+        } else if (isAlpha(data)) {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(bedrock_option_name_state);
+        } else if (data === '>') {
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else if (data.matches(/[()]/)) {
+            tokenizer._parseError("invalid-character-in-option-name", {data: data});
+            tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
+            tokenizer.setState(attribute_name_state);
+        } else {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_bareword_state);
+        }
+        return true;
+    }
+
+    function bedrock_option_name_state(buffer) {
+        var data = buffer.char();
+        var leavingThisState = true;
+        var shouldEmit = false;
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-option-name");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+            shouldEmit = true;
+        } else if (isAlphaNumeric(data) || data === '-' || data === '_') {
+            tokenizer._currentAttribute().nodeName += data.toLowerCase();
+            leavingThisState = false;
+        } else if (data === '>') {
+            shouldEmit = true;
+        } else if (data === '=') {
+            tokenizer.setState(before_bedrock_option_value);
+        } else if (isWhitespace(data)) {
+            setStateByStack();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeName += "\uFFFD";
+        } else {
+            tokenizer._parseError("invalid-character-in-option-name", {data: data});
+            tokenizer._currentAttribute().nodeName += data;
+            leavingThisState = false;
+        } 
+
+        if (leavingThisState) {
+            if (shouldEmit)
+                tokenizer._emitCurrentToken();
+        } else {
+            buffer.commit();
+        }
+        return true;
+    }
+
+    function before_bedrock_option_value(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-option-value-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            tokenizer._parseError("invalid-option-value");
+            setStateByStack();
+        } else if (isAlpha(data)) {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(bedrock_option_name_state);
+        } else if (data === '>') {
+            tokenizer._parseError("invalid-option-value");
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else if (data === '$') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_object_state);
+        } else if (data === '(') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_expression_first_state);
+        } else {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_bareword_state);
+        }
+        return true;
+    }
+
+    function before_bedrock_object_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-object-name-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            tokenizer._parseError("syntax-error");
+            setStateByStack();
+        } else if (isAlpha(data)) {
+            tokenizer._variables.push({value: data.toLowerCase()});
+            tokenizer.setState(bedrock_object_state);
+        } else if (data === '>') {
+            tokenizer._parseError("syntax-error");
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else {
+            tokenizer._parseError("invalid-character-in-object-name", {data: data});
+            tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
+            setStateByStack();
+        }
+        return true;
+    }
+
+    function bedrock_object_state(buffer) {
+        var data = buffer.char();
+        var leavingThisState = true;
+        var shouldEmit = false;
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-object-name");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+            shouldEmit = true;
+        } else if (isAlphaNumeric(data) || data === '-' || data === '_') {
+            tokenizer._currentVariable().value += data.toLowerCase();
+            leavingThisState = false;
+        } else if (data === '>') {
+            shouldEmit = true;
+        } else if (isWhitespace(data)) {
+            setStateByStack();
+        } else if (data === '.') {
+            tokenizer.setState(before_bedrock_object_attribute_state);
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentVariable().value += "\uFFFD";
+        } else {
+            tokenizer._parseError("invalid-character-in-object-name", {data: data});
+            tokenizer._currentVariable().value += data;
+            leavingThisState = false;
+        } 
+
+        if (leavingThisState) {
+            if (shouldEmit)
+                tokenizer._emitCurrentToken();
+        } else {
+            buffer.commit();
+        }
+        return true;
+    }
+
+    /* This covers methods and attributes */
+    function before_bedrock_object_attribute_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-object-attribute-name-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            tokenizer._parseError("syntax-error");
+            setStateByStack();
+        } else if (isAlpha(data)) {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(bedrock_object_attribute_state);
+        } else if (data === '[') {
+            tokenizer.setState(bedrock_array_index_state);
+        } else if (data === '>') {
+            tokenizer._parseError("syntax-error");
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else {
+            tokenizer._parseError("invalid-character-in-object-attribute-name", {data: data});
+            tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
+            setStateByStack();
+        }
+        return true;
+    }
+
+    function bedrock_array_index_state(buffer) {
+        /* INCOMPLETE */
+    }
+
+    /* This covers methods and attributes */
+    function bedrock_object_attribute_state(buffer) {
+        var data = buffer.char();
+        var leavingThisState = true;
+        var shouldEmit = false;
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-object-attribute-name");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+            shouldEmit = true;
+        } else if (isAlphaNumeric(data) || data === '.' || data === '_') {
+            tokenizer._currentAttribute().nodeName += data.toLowerCase();
+            leavingThisState = false;
+        } else if (data === '(') {
+            tokenizer.setState(bedrock_method_parameter_state);
+        } else if (data === '>') {
+            shouldEmit = true;
+        } else if (isWhitespace(data)) {
+            setStateByStack();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeName += "\uFFFD";
+        } else {
+            tokenizer._parseError("invalid-character-in-object-attribute-name", {data: data});
+            tokenizer._currentAttribute().nodeName += data;
+            leavingThisState = false;
+        } 
+
+        if (leavingThisState) {
+            if (shouldEmit)
+                tokenizer._emitCurrentToken();
+        } else {
+            buffer.commit();
+        }
+        return true;
+    }
+
+    function bedrock_method_parameter_state(buffer) {
+        var data = buffer.char();
+        /* Check this before pushing the state */
+        if (data == ')') {
+            setStateByStack();
+            return true;
+        }
+        pushState('bedrock_method_parameter');
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-bedrock-tag-contents-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            return true;
+        /* Strings */
+        } else if (data === '"') {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_double_quoted_state);
+        } else if (data === "'") {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_single_quoted_state);
+        /* Q String / Values */
+        } else if (data === 'q') {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_q_state);
+        /* objects */
+        } else if (data === '$') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_object_state);
+        /* Options */
+        } else if (data === '-') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_option_state);
+        } else if (data === '(') {
+            tokenizer.setState(before_bedrock_expression_first_state);
+        } else if (data === '>') {
+            tokenizer._parseError("missing-end-bracket");
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_bareword_state);
+        }
+        return true;
+    }
+
+    /* Either find parameter separator or the closing ) */
+    function after_bedrock_method_parameter_state(buffer) {
+        var data = buffer.char();
+        /* this should be checked first since we are looking at the previous character */
+        if (data === ',' || tokenizer._currentAttribute().nodeName === ',') {
+            tokenizer.setState(bedrock_method_parameter_state);
+        } else if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-method-parameter-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            return true;
+        } else if (data === ')') {
+            setStateByStack();
+        } else if (data === '>') {
+            tokenizer._parseError("missing-end-bracket");
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else {
+            tokenizer._parseError("missing-parameter-separator", {data: data});
+            tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
+            tokenizer.setState(bedrock_method_parameter_state);
+        }
+        return true;
+    }
+
+    function bedrock_double_quoted_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-string");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (data === '"') {
+            tokenizer._currentAttribute().nodeValue += data
+            setStateByStack();
+        } else if (data === '&') {
+            this._additionalAllowedCharacter = '"';
+            tokenizer.setState(character_reference_in_attribute_value_state);
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeValue += "\uFFFD";
+        } else {
+            var s = buffer.matchUntil('[\0"&]');
+            data = data + s;
+            tokenizer._currentAttribute().nodeValue += data;
+        }
+        return true;
+    }
+
+    function bedrock_single_quoted_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-string");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (data === "'") {
+            tokenizer._currentAttribute().nodeValue += data
+            setStateByStack();
+        } else if (data === '&') {
+            this._additionalAllowedCharacter = "'";
+            tokenizer.setState(character_reference_in_attribute_value_state);
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeValue += "\uFFFD";
+        } else {
+            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|['&]");
+        }
+        return true;
+    }
+
+    /* Decide if this is a q{} string or a bareword */
+    function bedrock_q_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-bareword");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            setStateByStack();
+        } else if (data === '{') {
+            tokenizer._currentAttribute().nodeValue += data;
+            tokenizer.setState(bedrock_q_string_state);
+        } else if (isAlphaNumeric(data) || data === '-' || data === '_') {
+            tokenizer._currentAttribute().nodeValue += data;
+            tokenizer.setState(bedrock_bareword_state);
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeValue += "\uFFFD";
+        } else {
+            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|[}&]");
+        }
+        return true;
+    }
+
+    function bedrock_q_string_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-string");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (data === "}") {
+            setStateByStack();
+        } else if (data === '&') {
+            this._additionalAllowedCharacter = "'";
+            tokenizer.setState(character_reference_in_attribute_value_state);
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeValue += "\uFFFD";
+        } else {
+            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|[}&]");
+        }
+        return true;
+    }
+
+    function bedrock_bareword_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-after-attribute-value");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data) || data === ',') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            setStateByStack();
+        } else if (data === '>') {
+            tokenizer._emitCurrentToken();
+        } else if (data.match(/["'=`<\-]/)) {
+            tokenizer._parseError("invalid-character-in-bareword", {data: data});
+            tokenizer._currentAttribute().nodeValue += data;
+            buffer.commit();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeValue += "\uFFFD";
+        } else {
+            var o = buffer.matchUntil("\u0000|["+ "\t\n\v\f\x20\r" + "<>\"'=`,\-" +"]");
+            if (o === InputStream.EOF) {
+                tokenizer._parseError("eof-in-attribute-value-no-quotes");
+                tokenizer._emitCurrentToken();
+            }
+            buffer.commit();
+            tokenizer._currentAttribute().nodeValue += data + o;
+        }
+        return true;
+    }
+
+    function before_bedrock_expression_first_state(buffer) {
+        var data = buffer.char();
+        /* Update the stack */
+        pushState('bedrock_expression_first');
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-expression-value-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            return true;
+        /* Strings */
+        } else if (data === '"') {
+            tokenizer.setState(bedrock_double_quoted_state);
+        } else if (data === "'") {
+            tokenizer.setState(bedrock_single_quoted_state);
+        /* Q String / Values */
+        } else if (data === 'q') {
+            tokenizer.setState(bedrock_q_state);
+        /* objects */
+        } else if (data === '$') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_object_state);
+        } else if (data === '(') {
+            tokenizer.setState(before_bedrock_expression_first_state);
+        } else if (data === ')') {
+            tokenizer._parseError("invalid-token");
+            setStateByStack();
+        } else if (data === '>') {
+            tokenizer._parseError("expression-not-terminated");
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(bedrock_bareword_state);
+        }
+        return true;
+    }
+
+    /* Checkes for whitespace if needed (comming from strings) */
+    function before_bedrock_operator_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-white-space-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            return true;
+        } else if (data === '-') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_operator_name_state);
+        } else if (data.matches(/+*\/./)) {
+            tokenizer.setState(after_bedrock_operator_state);
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeValue += "\uFFFD";
+        } else if (data === '>') {
+            tokenizer._parseError("expression-not-terminated");
+            tokenizer._emitCurrentToken();
+        } else {
+            tokenizer._parseError("expression-not-terminated");
+            tokenizer.setState(bedrock_operator_state);
+        }
+        return true;
+    }
+
+    function before_bedrock_operator_name_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-option-name-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            tokenizer.setState(before_bedrock_expression_second_state);
+        } else if (data === '-') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(bedrock_operator_name_state);
+        } else if (data === '>') {
+            tokenizer._parseError("expression-not-terminated");
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else {
+            tokenizer._parseError("invalid-character-in-operator-name", {data: data});
+            tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
+            tokenizer.setState(attribute_name_state);
+        }
+        return true;
+    }
+
+    function bedrock_operator_name_state(buffer) {
+        var data = buffer.char();
+        var leavingThisState = true;
+        var shouldEmit = false;
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-option-name");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+            shouldEmit = true;
+        } else if (isAlphaNumeric(data) || data === '-' || data === '_') {
+            tokenizer._currentAttribute().nodeName += data.toLowerCase();
+            leavingThisState = false;
+        } else if (data === '>') {
+            shouldEmit = true;
+        } else if (data === '=') {
+            tokenizer.setState(before_bedrock_option_value);
+        } else if (isWhitespace(data)) {
+            setStateByStack();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeName += "\uFFFD";
+        } else {
+            tokenizer._parseError("invalid-character-in-option-name", {data: data});
+            tokenizer._currentAttribute().nodeName += data;
+            leavingThisState = false;
+        } 
+
+        if (leavingThisState) {
+            if (shouldEmit)
+                tokenizer._emitCurrentToken();
+        } else {
+            buffer.commit();
+        }
+        return true;
+    }
+
+    function after_bedrock_operator_state(buffer) {
+        /* INCOMPLETE */
+        // Same as before_bedrock_expression_second_state but white space is man
+    }
+
+    function before_bedrock_expression_second_state(buffer) {
+        /* INCOMPLETE */
+    }
+
+    function pushState(state) {
+        tokenizer._stack.push(state);
+    }
+
+    function setStateByStack() {
+        switch(tokenizer._stack.pop()) {
+            case 'bedrock_content' :
+                tokenizer.setState(before_bedrock_content_state);
+                return;
+            case 'bedrock_expression_first' :
+                tokenizer.setState(before_bedrock_operator_state);
+                return;
+            case 'bedrock_expression_first_space' :
+                tokenizer.setState(bedrock_operator_state);
+                return;
+            case 'bedrock_method_parameter' :
+                tokenizer.setState(after_bedrock_method_parameter_state);
+                return;
+        }
+    }
+
+//////////////////////////Bedrock end/////////////////////////////////////////
 	function before_attribute_name_state(buffer) {
 		var data = buffer.char();
 		if (data === InputStream.EOF) {
@@ -2974,12 +3685,20 @@ Tokenizer.prototype.tokenize = function(source) {
 	function character_reference_in_attribute_value_state(buffer) {
 		var character = EntityParser.consumeEntity(buffer, tokenizer, this._additionalAllowedCharacter);
 		this._currentAttribute().nodeValue += character || '&';
-		if (this._additionalAllowedCharacter === '"')
-			tokenizer.setState(attribute_value_double_quoted_state);
-		else if (this._additionalAllowedCharacter === '\'')
-			tokenizer.setState(attribute_value_single_quoted_state);
-		else if (this._additionalAllowedCharacter === '>')
-			tokenizer.setState(attribute_value_unquoted_state);
+        if (tokenizer._stack.length > 0) {
+            if (this._additionalAllowedCharacter === '"')
+                tokenizer.setState(bedrock_double_quoted_state);
+            else if (this._additionalAllowedCharacter === '\'')
+                tokenizer.setState(bedrock_single_quoted_state);
+        }
+        else {
+    		if (this._additionalAllowedCharacter === '"')
+    			tokenizer.setState(attribute_value_double_quoted_state);
+    		else if (this._additionalAllowedCharacter === '\'')
+    			tokenizer.setState(attribute_value_single_quoted_state);
+    		else if (this._additionalAllowedCharacter === '>')
+    			tokenizer.setState(attribute_value_unquoted_state);
+        }
 		return true;
 	}
 
@@ -4325,110 +5044,141 @@ function TreeBuilder() {
 	modes.inBody = Object.create(modes.base);
 
 	modes.inBody.start_tag_handlers = {
-		html: 'startTagHtml',
-		head: 'startTagMisplaced',
-		base: 'startTagProcessInHead',
-		basefont: 'startTagProcessInHead',
-		bgsound: 'startTagProcessInHead',
-		link: 'startTagProcessInHead',
-		meta: 'startTagProcessInHead',
-		noframes: 'startTagProcessInHead',
-		script: 'startTagProcessInHead',
-		style: 'startTagProcessInHead',
-		title: 'startTagProcessInHead',
-		body: 'startTagBody',
-		form: 'startTagForm',
-		plaintext: 'startTagPlaintext',
-		a: 'startTagA',
-		button: 'startTagButton',
-		xmp: 'startTagXmp',
-		table: 'startTagTable',
-		hr: 'startTagHr',
-		image: 'startTagImage',
-		input: 'startTagInput',
-		textarea: 'startTagTextarea',
-		select: 'startTagSelect',
-		isindex: 'startTagIsindex',
-		applet:	'startTagAppletMarqueeObject',
-		marquee:	'startTagAppletMarqueeObject',
-		object:	'startTagAppletMarqueeObject',
-		li: 'startTagListItem',
-		dd: 'startTagListItem',
-		dt: 'startTagListItem',
-		address: 'startTagCloseP',
-		article: 'startTagCloseP',
-		aside: 'startTagCloseP',
-		blockquote: 'startTagCloseP',
-		center: 'startTagCloseP',
-		details: 'startTagCloseP',
-		dir: 'startTagCloseP',
-		div: 'startTagCloseP',
-		dl: 'startTagCloseP',
-		fieldset: 'startTagCloseP',
-		figcaption: 'startTagCloseP',
-		figure: 'startTagCloseP',
-		footer: 'startTagCloseP',
-		header: 'startTagCloseP',
-		hgroup: 'startTagCloseP',
-		main: 'startTagCloseP',
-		menu: 'startTagCloseP',
-		nav: 'startTagCloseP',
-		ol: 'startTagCloseP',
-		p: 'startTagCloseP',
-		section: 'startTagCloseP',
-		summary: 'startTagCloseP',
-		ul: 'startTagCloseP',
-		listing: 'startTagPreListing',
-		pre: 'startTagPreListing',
-		b: 'startTagFormatting',
-		big: 'startTagFormatting',
-		code: 'startTagFormatting',
-		em: 'startTagFormatting',
-		font: 'startTagFormatting',
-		i: 'startTagFormatting',
-		s: 'startTagFormatting',
-		small: 'startTagFormatting',
-		strike: 'startTagFormatting',
-		strong: 'startTagFormatting',
-		tt: 'startTagFormatting',
-		u: 'startTagFormatting',
-		nobr: 'startTagNobr',
-		area: 'startTagVoidFormatting',
-		br: 'startTagVoidFormatting',
-		embed: 'startTagVoidFormatting',
-		img: 'startTagVoidFormatting',
-		keygen: 'startTagVoidFormatting',
-		wbr: 'startTagVoidFormatting',
-		param: 'startTagParamSourceTrack',
-		source: 'startTagParamSourceTrack',
-		track: 'startTagParamSourceTrack',
-		iframe: 'startTagIFrame',
-		noembed: 'startTagRawText',
-		noscript: 'startTagRawText',
-		h1: 'startTagHeading',
-		h2: 'startTagHeading',
-		h3: 'startTagHeading',
-		h4: 'startTagHeading',
-		h5: 'startTagHeading',
-		h6: 'startTagHeading',
-		caption: 'startTagMisplaced',
-		col: 'startTagMisplaced',
-		colgroup: 'startTagMisplaced',
-		frame: 'startTagMisplaced',
-		frameset: 'startTagFrameset',
-		tbody: 'startTagMisplaced',
-		td: 'startTagMisplaced',
-		tfoot: 'startTagMisplaced',
-		th: 'startTagMisplaced',
-		thead: 'startTagMisplaced',
-		tr: 'startTagMisplaced',
-		option: 'startTagOptionOptgroup',
-		optgroup: 'startTagOptionOptgroup',
-		math: 'startTagMath',
-		svg: 'startTagSVG',
-		rt: 'startTagRpRt',
-		rp: 'startTagRpRt',
-		"-default": 'startTagOther'
+        html: 'startTagHtml',
+        head: 'startTagMisplaced',
+        base: 'startTagProcessInHead',
+        basefont: 'startTagProcessInHead',
+        bgsound: 'startTagProcessInHead',
+        link: 'startTagProcessInHead',
+        meta: 'startTagProcessInHead',
+        noframes: 'startTagProcessInHead',
+        script: 'startTagProcessInHead',
+        style: 'startTagProcessInHead',
+        title: 'startTagProcessInHead',
+        body: 'startTagBody',
+        form: 'startTagForm',
+        plaintext: 'startTagPlaintext',
+        a: 'startTagA',
+        button: 'startTagButton',
+        xmp: 'startTagXmp',
+        table: 'startTagTable',
+        hr: 'startTagHr',
+        image: 'startTagImage',
+        input: 'startTagInput',
+        textarea: 'startTagTextarea',
+        select: 'startTagSelect',
+        isindex: 'startTagIsindex',
+        applet:	'startTagAppletMarqueeObject',
+        marquee:	'startTagAppletMarqueeObject',
+        object:	'startTagAppletMarqueeObject',
+        li: 'startTagListItem',
+        dd: 'startTagListItem',
+        dt: 'startTagListItem',
+        address: 'startTagCloseP',
+        article: 'startTagCloseP',
+        aside: 'startTagCloseP',
+        blockquote: 'startTagCloseP',
+        center: 'startTagCloseP',
+        details: 'startTagCloseP',
+        dir: 'startTagCloseP',
+        div: 'startTagCloseP',
+        dl: 'startTagCloseP',
+        fieldset: 'startTagCloseP',
+        figcaption: 'startTagCloseP',
+        figure: 'startTagCloseP',
+        footer: 'startTagCloseP',
+        header: 'startTagCloseP',
+        hgroup: 'startTagCloseP',
+        main: 'startTagCloseP',
+        menu: 'startTagCloseP',
+        nav: 'startTagCloseP',
+        ol: 'startTagCloseP',
+        p: 'startTagCloseP',
+        section: 'startTagCloseP',
+        summary: 'startTagCloseP',
+        ul: 'startTagCloseP',
+        listing: 'startTagPreListing',
+        pre: 'startTagPreListing',
+        b: 'startTagFormatting',
+        big: 'startTagFormatting',
+        code: 'startTagFormatting',
+        em: 'startTagFormatting',
+        font: 'startTagFormatting',
+        i: 'startTagFormatting',
+        s: 'startTagFormatting',
+        small: 'startTagFormatting',
+        strike: 'startTagFormatting',
+        strong: 'startTagFormatting',
+        tt: 'startTagFormatting',
+        u: 'startTagFormatting',
+        nobr: 'startTagNobr',
+        area: 'startTagVoidFormatting',
+        br: 'startTagVoidFormatting',
+        embed: 'startTagVoidFormatting',
+        img: 'startTagVoidFormatting',
+        keygen: 'startTagVoidFormatting',
+        wbr: 'startTagVoidFormatting',
+        param: 'startTagParamSourceTrack',
+        source: 'startTagParamSourceTrack',
+        track: 'startTagParamSourceTrack',
+        iframe: 'startTagIFrame',
+        noembed: 'startTagRawText',
+        noscript: 'startTagRawText',
+        h1: 'startTagHeading',
+        h2: 'startTagHeading',
+        h3: 'startTagHeading',
+        h4: 'startTagHeading',
+        h5: 'startTagHeading',
+        h6: 'startTagHeading',
+        caption: 'startTagMisplaced',
+        col: 'startTagMisplaced',
+        colgroup: 'startTagMisplaced',
+        frame: 'startTagMisplaced',
+        frameset: 'startTagFrameset',
+        tbody: 'startTagMisplaced',
+        td: 'startTagMisplaced',
+        tfoot: 'startTagMisplaced',
+        th: 'startTagMisplaced',
+        thead: 'startTagMisplaced',
+        tr: 'startTagMisplaced',
+        option: 'startTagOptionOptgroup',
+        optgroup: 'startTagOptionOptgroup',
+        math: 'startTagMath',
+        svg: 'startTagSVG',
+        rt: 'startTagRpRt',
+        rp: 'startTagRpRt',
+/*        array       : 'startTagCloseP',
+        case        : 'startTagCloseP',
+        catch       : 'startTagCloseP',
+        exec        : 'startTagCloseP',
+        flush       : 'startTagCloseP',
+        foreach     : 'startTagCloseP',
+        hash        : 'startTagCloseP',
+        if          : 'startTagCloseP',
+        iif         : 'startTagCloseP',
+        include     : 'startTagCloseP',
+        noexec      : 'startTagCloseP', */
+        null        : 'startTagVoidFormatting', /*
+        open        : 'startTagCloseP',
+        pebble      : 'startTagCloseP',
+        pebbledef   : 'startTagCloseP',
+        plugin      : 'startTagCloseP',
+        raise       : 'startTagCloseP',
+        recordset   : 'startTagCloseP',
+        sink        : 'startTagCloseP',
+        snippet     : 'startTagCloseP',
+        sql         : 'startTagCloseP',
+        sqlcommit   : 'startTagCloseP',
+        sqlconnect  : 'startTagCloseP',
+        sqlrollback : 'startTagCloseP',
+        sqlselect   : 'startTagCloseP',
+        sqltable    : 'startTagCloseP',
+        trace       : 'startTagCloseP',
+        try         : 'startTagCloseP',
+        unless      : 'startTagCloseP',
+        var         : 'startTagCloseP',
+        while       : 'startTagCloseP',*/
+        "-default": 'startTagOther'
 	};
 
 	modes.inBody.end_tag_handlers = {
@@ -6115,6 +6865,7 @@ TreeBuilder.prototype.startTokenization = function(tokenizer) {
 	this.activeFormattingElements = [];
 	this.start();
 	if (this.context) {
+        console.log("startTokenization conetxt set to : "+this.con);
 		switch(this.context) {
 		case 'title':
 		case 'textarea':
@@ -6632,6 +7383,8 @@ exports.ForeignAttributeMap = {
 {}],
 8:[function(_dereq_,module,exports){
 module.exports={
+    "invalid-option-value":
+        "Invalid option value",
 	"null-character":
 		"Null character in input stream, replaced with U+FFFD.",
 	"invalid-codepoint":
@@ -6674,12 +7427,24 @@ module.exports={
 		"Expected closing tag. Unexpected end of file.",
 	"expected-closing-tag-but-got-char":
 		"Expected closing tag. Unexpected character '{data}' found.",
+    "eof-in-string":
+        "Unexpected end of file in the string.",
+    "eof-in-option-name":
+        "Unexpected end of file in the option name.",
 	"eof-in-tag-name":
 		"Unexpected end of file in the tag name.",
 	"expected-attribute-name-but-got-eof":
 		"Unexpected end of file. Expected attribute name instead.",
 	"eof-in-attribute-name":
 		"Unexpected end of file in attribute name.",
+    "invalid-character-in-bedrock-tag":
+        "Invalid character '{data}' in bedrock tag.",
+    "invalid-character-in-object-name":
+        "Invalid character '{data}' in object name.",
+    "invalid-character-in-object-attribute-name":
+        "Invalid character '{data}' in objects attribute/method name.",
+    "invalid-character-in-bareword":
+        "Invalid character '{data}' in bareword.",
 	"invalid-character-in-attribute-name":
 		"Invalid character in attribute name.",
 	"duplicate-attribute":
@@ -6780,6 +7545,8 @@ module.exports={
 		"Unexpected start tag ({name}) that can be in head. Moved.",
 	"unexpected-start-tag":
 		"Unexpected start tag ({name}).",
+    "missing-end-bracket":
+        "Missing end bracket.",
 	"missing-end-tag":
 		"Missing end tag ({name}).",
 	"missing-end-tags":
@@ -6887,7 +7654,11 @@ module.exports={
 	"unexpected-html-element-in-foreign-content":
 		"HTML start tag \"{name}\" in a foreign namespace context.",
 	"unexpected-start-tag-in-table":
-		"Unexpected {name}. Expected table content."
+		"Unexpected {name}. Expected table content.",
+    "syntax-error":
+        "Syntax error.",
+    "missing-parameter-separator":
+        "Missing parameter separator near '{data}'."
 }
 },
 {}],
@@ -10844,7 +11615,7 @@ module.exports=_dereq_(15)
 
 });
 
-define("ace/mode/html_worker",["require","exports","module","ace/lib/oop","ace/lib/lang","ace/worker/mirror","ace/mode/html/saxparser"], function(require, exports, module) {
+define("ace/mode/bedrock_worker",["require","exports","module","ace/lib/oop","ace/lib/lang","ace/worker/mirror","ace/mode/html/saxparser"], function(require, exports, module) {
 "use strict";
 
 var oop = require("../lib/oop");
