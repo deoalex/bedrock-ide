@@ -2094,6 +2094,9 @@ function isAlphaNumeric(c) {
 function isAlpha(c) {
 	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
+function isDecimalDigit(c) {
+    return (c >= '0' && c <= '9');
+}
 function Tokenizer(tokenHandler) {
 	this._tokenHandler = tokenHandler;
 	this._state = Tokenizer.DATA;
@@ -3020,7 +3023,8 @@ Tokenizer.prototype.tokenize = function(source) {
             leavingThisState = false;
         } else if (data === '>') {
             shouldEmit = true;
-        } else if (isWhitespace(data)) {
+        } else if (isWhitespace(data) || data === ']') {
+            tokenizer._variables.push({value: data});
             setStateByStack();
         } else if (data === '.') {
             tokenizer.setState(before_bedrock_object_attribute_state);
@@ -3056,7 +3060,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(bedrock_object_attribute_state);
         } else if (data === '[') {
-            tokenizer.setState(bedrock_array_index_state);
+            tokenizer.setState(before_bedrock_array_index_state);
         } else if (data === '>') {
             tokenizer._parseError("syntax-error");
             tokenizer._emitCurrentToken();
@@ -3071,8 +3075,68 @@ Tokenizer.prototype.tokenize = function(source) {
         return true;
     }
 
-    function bedrock_array_index_state(buffer) {
-        /* INCOMPLETE */
+    function before_bedrock_array_index_state(buffer) {
+        var data = buffer.char();
+        if (data === "]") {
+            tokenizer._parseError("invalid-array-index", {data: " "});
+            setStateByStack();
+            return true;
+        }
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-index-value-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            return true;
+        /* objects */
+        } else if (data === '$') {
+            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
+            tokenizer.setState(before_bedrock_object_state);
+        } else if (isDecimalDigit(data)) {
+            pushState('before_array_index');
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""})
+            tokenizer.setState(number_state);
+        } else if (data === '>') {
+            tokenizer._parseError("array-index-not-terminated");
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else {
+            var temp = data + buffer.matchUntil("\u0000|]|>");
+            tokenizer._parseError("invalid-array-index", {data: temp});
+            tokenizer.setState(after_bedrock_array_index_state);
+        }
+        return true;
+    }
+
+    function after_bedrock_array_index_state(buffer) {
+        var data = buffer.char();
+        if (tokenizer._currentAttribute().nodeValue === ']') {
+            setStateByStack();
+            return true;
+        }
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("expected-index-value-got-eof");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data)) {
+            return true;
+        /* objects */
+        } else if (data === ']') {
+            setStateByStack();
+        } else if (data === '>') {
+            tokenizer._parseError("array-index-not-terminated");
+            tokenizer._emitCurrentToken();
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
+        } else {
+            var temp = data + buffer.matchUntil("\u0000|>|]");
+            tokenizer._parseError("invalid-array-index", {data: temp});
+            tokenizer.setState(after_bedrock_array_index_state);
+        }
+        return true;
     }
 
     /* This covers methods and attributes */
@@ -3331,7 +3395,7 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data === '(') {
             tokenizer.setState(before_bedrock_expression_first_state);
         } else if (data === ')') {
-            tokenizer._parseError("invalid-token");
+            tokenizer._parseError("invalid-expression", {data: "()"});
             setStateByStack();
         } else if (data === '>') {
             tokenizer._parseError("expression-not-terminated");
@@ -3443,6 +3507,27 @@ Tokenizer.prototype.tokenize = function(source) {
         /* INCOMPLETE */
     }
 
+    function number_state(buffer) {
+        var data = buffer.char();
+        if (data === InputStream.EOF) {
+            tokenizer._parseError("eof-in-bareword");
+            buffer.unget(data);
+            tokenizer.setState(data_state);
+        } else if (isWhitespace(data) || data === ']' || data === ')' || data === '>') {
+            tokenizer._currentToken.data.push({nodeName: "", nodeValue: data});
+            setStateByStack();
+        } else if (isDecimalDigit(data)) {
+            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|[^\d]");
+        } else if (data === '\u0000') {
+            tokenizer._parseError("invalid-codepoint");
+            tokenizer._currentAttribute().nodeValue += "\uFFFD";
+        } else {
+            tokenizer._parseError("invalid-character-in-number", {data: data});
+            setStateByStack();
+        }
+        return true;
+    }
+
     function pushState(state) {
         tokenizer._stack.push(state);
     }
@@ -3461,6 +3546,8 @@ Tokenizer.prototype.tokenize = function(source) {
             case 'bedrock_method_parameter' :
                 tokenizer.setState(after_bedrock_method_parameter_state);
                 return;
+            case 'before_array_index' :
+                tokenizer.setState(after_bedrock_array_index_state);
         }
     }
 
@@ -5147,15 +5234,15 @@ function TreeBuilder() {
         svg: 'startTagSVG',
         rt: 'startTagRpRt',
         rp: 'startTagRpRt',
-/*        array       : 'startTagCloseP',
+        array       : 'startTagVoidFormatting', /*
         case        : 'startTagCloseP',
         catch       : 'startTagCloseP',
         exec        : 'startTagCloseP',
         flush       : 'startTagCloseP',
         foreach     : 'startTagCloseP',
-        hash        : 'startTagCloseP',
+        hash        : 'startTagCloseP',*/
         if          : 'startTagCloseP',
-        iif         : 'startTagCloseP',
+        /*iif         : 'startTagCloseP',
         include     : 'startTagCloseP',
         noexec      : 'startTagCloseP', */
         null        : 'startTagVoidFormatting', /*
@@ -5175,9 +5262,9 @@ function TreeBuilder() {
         sqltable    : 'startTagCloseP',
         trace       : 'startTagCloseP',
         try         : 'startTagCloseP',
-        unless      : 'startTagCloseP',
-        var         : 'startTagCloseP',
-        while       : 'startTagCloseP',*/
+        unless      : 'startTagCloseP',*/
+        var         : 'startTagVoidFormatting',
+        //while       : 'startTagCloseP',
         "-default": 'startTagOther'
 	};
 
@@ -7415,6 +7502,8 @@ module.exports={
 		"End tag contains unexpected self-closing flag.",
 	"bare-less-than-sign-at-eof":
 		"End of file after <.",
+    "expected-closing-brace-but-got":
+        "Expected closing ']' but got '{data}'",
 	"expected-tag-name-but-got-right-bracket":
 		"Expected tag name. Got '>' instead.",
 	"expected-tag-name-but-got-question-mark":
@@ -7447,6 +7536,10 @@ module.exports={
         "Invalid character '{data}' in bareword.",
 	"invalid-character-in-attribute-name":
 		"Invalid character in attribute name.",
+    "invalid-array-index":
+        "Invalid value '{data}' in array index",
+    "invalid-character-in-number":
+        "Bareword found where number is expected '{data}'",
 	"duplicate-attribute":
 		"Dropped duplicate attribute '{name}' on tag.",
 	"expected-end-of-tag-but-got-eof":
@@ -7658,7 +7751,11 @@ module.exports={
     "syntax-error":
         "Syntax error.",
     "missing-parameter-separator":
-        "Missing parameter separator near '{data}'."
+        "Missing parameter separator near '{data}'.",
+    "invalid-token":
+        "Invalid token",
+    "invalid-expression":
+        "Illegal expression '{data}'.",
 }
 },
 {}],
