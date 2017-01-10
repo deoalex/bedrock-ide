@@ -3031,7 +3031,7 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data === '>') {
             shouldEmit = true;
         } else if (isWhitespace(data)) {
-            tokenizer._variables.push({value: data});
+            buffer.start--;
             setStateByStack();
         } else if (data === ')' || data === ']') {
             buffer.start--;
@@ -3366,7 +3366,8 @@ Tokenizer.prototype.tokenize = function(source) {
             buffer.start--;
             setStateByStack();
         } else if (data === '>') {
-            tokenizer._emitCurrentToken();
+            buffer.start--;
+            setStateByStack();
         } else if (data.match(/["'=`<\-]/)) {
             tokenizer._parseError("invalid-character-in-bareword", {data: data});
             tokenizer._currentAttribute().nodeValue += data;
@@ -3375,7 +3376,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentAttribute().nodeValue += "\uFFFD";
         } else {
-            var o = buffer.matchUntil("\u0000|["+ "\t\n\v\f\x20\r" + "<>\"'=`,\-" +"]");
+            var o = buffer.matchUntil("\u0000|["+ "\t\n\v\f\x20\r" + "<>\"'=`,)" +"]|]|-");
             if (o === InputStream.EOF) {
                 tokenizer._parseError("eof-in-attribute-value-no-quotes");
                 tokenizer._emitCurrentToken();
@@ -3390,6 +3391,11 @@ Tokenizer.prototype.tokenize = function(source) {
         var data = buffer.char();
         if (isWhitespace(data))
             return true;
+        else if (data === ')') {
+            tokenizer._parseError("invalid-expression", {data: "()"});
+            setStateByStack();
+            return true;
+        }
         /* Update the stack */
         pushState('bedrock_expression_first');
         if (data === InputStream.EOF) {
@@ -3413,10 +3419,6 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(before_bedrock_object_state);
         } else if (data === '(') {
             tokenizer.setState(before_bedrock_expression_first_state);
-        } else if (data === ')') {
-            tokenizer._stack.pop();
-            tokenizer._parseError("invalid-expression", {data: "()"});
-            setStateByStack();
         } else if (data === '>') {
             tokenizer._parseError("expression-not-terminated");
             tokenizer._emitCurrentToken();
@@ -3651,7 +3653,8 @@ Tokenizer.prototype.tokenize = function(source) {
                 tokenizer.setState(before_bedrock_content_state);
                 return;
             case 'bedrock_expression_first' :
-                if (isWhitespace(tokenizer._currentAttribute().nodeValue))
+                if (tokenizer._currentAttribute()
+                 && isWhitespace(tokenizer._currentAttribute().nodeValue))
                     tokenizer.setState(bedrock_operator_state);
                 else
                     tokenizer.setState(before_bedrock_operator_state);
@@ -4835,6 +4838,40 @@ function TreeBuilder() {
 
 	modes.beforeHTML.start_tag_handlers = {
 		html: 'startTagHtml',
+        null: 'startTagBedrock',
+        array       : 'startTagVoidFormatting',
+        case        : 'startTagVoidFormatting',
+        catch       : 'startTagVoidFormatting',
+        else        : 'startTagVoidFormatting',
+        elseif      : 'startTagVoidFormatting',
+        exec        : 'startTagVoidFormatting',
+        flush       : 'startTagVoidFormatting',
+        foreach     : 'startTagCloseP',
+        hash        : 'startTagVoidFormatting',
+        if          : 'startTagCloseP',
+        iif         : 'startTagVoidFormatting',
+        include     : 'startTagVoidFormatting',
+        noexec      : 'startTagCloseP', 
+        null        : 'startTagVoidFormatting',
+        open        : 'startTagVoidFormatting',
+        pebble      : 'startTagVoidFormatting',
+        pebbledef   : 'startTagCloseP',
+        plugin      : 'startTagVoidFormatting',
+        raise       : 'startTagVoidFormatting',
+        recordset   : 'startTagVoidFormatting',
+        sink        : 'startTagCloseP',
+        snippet     : 'startTagCloseP',
+        sql         : 'startTagVoidFormatting',
+        sqlcommit   : 'startTagVoidFormatting',
+        sqlconnect  : 'startTagVoidFormatting',
+        sqlrollback : 'startTagVoidFormatting',
+        sqlselect   : 'startTagCloseP',
+        sqltable    : 'startTagVoidFormatting',
+        trace       : 'startTagVoidFormatting',
+        try         : 'startTagCloseP',
+        unless      : 'startTagCloseP',
+        var         : 'startTagVoidFormatting',
+        while       : 'startTagCloseP',
 		'-default': 'startTagOther'
 	};
 
@@ -4859,6 +4896,10 @@ function TreeBuilder() {
 		tree.insertHtmlElement(attributes);
 		tree.setInsertionMode('beforeHead');
 	};
+
+    modes.beforeHTML.startTagBedrock = function(name, attributes, selfClosing) {
+        tree.insertHtmlElement(attributes);
+    }
 
 	modes.beforeHTML.startTagOther = function(name, attributes, selfClosing) {
 		this.anythingElse();
@@ -5350,37 +5391,39 @@ function TreeBuilder() {
         svg: 'startTagSVG',
         rt: 'startTagRpRt',
         rp: 'startTagRpRt',
-        array       : 'startTagVoidFormatting', /*
-        case        : 'startTagCloseP',
-        catch       : 'startTagCloseP',
-        exec        : 'startTagCloseP',
-        flush       : 'startTagCloseP',
+        array       : 'startTagVoidFormatting',
+        case        : 'startTagVoidFormatting',
+        catch       : 'startTagVoidFormatting',
+        else        : 'startTagVoidFormatting',
+        elseif      : 'startTagVoidFormatting',
+        exec        : 'startTagVoidFormatting',
+        flush       : 'startTagVoidFormatting',
         foreach     : 'startTagCloseP',
-        hash        : 'startTagCloseP',*/
+        hash        : 'startTagVoidFormatting',
         if          : 'startTagCloseP',
-        /*iif         : 'startTagCloseP',
-        include     : 'startTagCloseP',
-        noexec      : 'startTagCloseP', */
-        null        : 'startTagVoidFormatting', /*
-        open        : 'startTagCloseP',
-        pebble      : 'startTagCloseP',
+        iif         : 'startTagVoidFormatting',
+        include     : 'startTagVoidFormatting',
+        noexec      : 'startTagCloseP', 
+        null        : 'startTagVoidFormatting',
+        open        : 'startTagVoidFormatting',
+        pebble      : 'startTagVoidFormatting',
         pebbledef   : 'startTagCloseP',
-        plugin      : 'startTagCloseP',
-        raise       : 'startTagCloseP',
-        recordset   : 'startTagCloseP',
+        plugin      : 'startTagVoidFormatting',
+        raise       : 'startTagVoidFormatting',
+        recordset   : 'startTagVoidFormatting',
         sink        : 'startTagCloseP',
         snippet     : 'startTagCloseP',
-        sql         : 'startTagCloseP',
-        sqlcommit   : 'startTagCloseP',
-        sqlconnect  : 'startTagCloseP',
-        sqlrollback : 'startTagCloseP',
+        sql         : 'startTagVoidFormatting',
+        sqlcommit   : 'startTagVoidFormatting',
+        sqlconnect  : 'startTagVoidFormatting',
+        sqlrollback : 'startTagVoidFormatting',
         sqlselect   : 'startTagCloseP',
-        sqltable    : 'startTagCloseP',
-        trace       : 'startTagCloseP',
+        sqltable    : 'startTagVoidFormatting',
+        trace       : 'startTagVoidFormatting',
         try         : 'startTagCloseP',
-        unless      : 'startTagCloseP',*/
+        unless      : 'startTagCloseP',
         var         : 'startTagVoidFormatting',
-        //while       : 'startTagCloseP',
+        while       : 'startTagCloseP',
         "-default": 'startTagOther'
 	};
 
@@ -7854,6 +7897,8 @@ module.exports={
 		"Unexpected start tag ({name}). Expected end of file.",
 	"expected-eof-but-got-end-tag":
 		"Unexpected end tag ({name}). Expected end of file.",
+    "expected-bedrock-tag-contents-got-eof":
+        "Unexpected end of file in bedrock tag",
 	"unexpected-end-table-in-caption":
 		"Unexpected end table tag in caption. Generates implied end caption.",
 	"end-html-in-innerhtml": 
@@ -7885,7 +7930,9 @@ module.exports={
     "expression-not-terminated":
         "Expression not terminated. Missing ')'?",
     "invalid-operator-name":
-        "invalid-operator"
+        "invalid-operator",
+    "array-index-not-terminated":
+        "Array index not terminated. Missing ']'?"
 }
 },
 {}],

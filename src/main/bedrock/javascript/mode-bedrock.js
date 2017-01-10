@@ -1529,12 +1529,10 @@ var bTagMap = lang.createMap({
     var         : 'object',
     while       : 'loop'
 });
-var bTagRegex = "array|case|catch|else|elseif|exec|flush|foreach|hash|if|iif|include"+
-                "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
-                "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
-                "|sqltable|trace|try|unless|var|while";
-
-
+var bTagRegex = "array|case|catch|elseif|else|exec|flush|foreach|hash|iif|if|include"+
+                "|noexec|null|open|pebbledef|pebble|plugin|raise|recordset"+
+                "|sink|snippet|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
+                "|sqltable|sql|trace|try|unless|var|while";
 
 var bedrockHighlightRules = function() {
     XmlHighlightRules.call(this);
