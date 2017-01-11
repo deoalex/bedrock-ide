@@ -1496,6 +1496,7 @@ ElementStack.prototype.pushBodyElement = function(item) {
 	this.bodyElement = item.node;
 	this.push(item);
 };
+
 ElementStack.prototype.pop = function() {
 	return this.elements.pop();
 };
@@ -1506,9 +1507,8 @@ ElementStack.prototype.popUntilPopped = function(localName) {
 	var element;
 	do {
 		element = this.pop();
-	} while (element.localName != localName);
+	} while (element && element.localName != localName);
 };
-
 ElementStack.prototype.popUntilTableScopeMarker = function() {
 	while (!isTableScopeMarker(this.top))
 		this.pop();
@@ -2142,10 +2142,6 @@ Tokenizer.prototype._currentAttribute = function() {
 	return this._currentToken.data[this._currentToken.data.length - 1];
 };
 
-Tokenizer.prototype._currentVariable = function() {
-    return this._variables[this._variables.length - 1];
-};
-
 Tokenizer.prototype.setState = function(state) {
 	this._state = state;
 };
@@ -2756,8 +2752,10 @@ Tokenizer.prototype.tokenize = function(source) {
 			tokenizer.setState(data_state);
 		} else if (isWhitespace(data) || data === ":") {
             if (isBedrockTag(tokenizer._currentToken.name)) {
+                tokenizer._currentToken.type = (tokenizer._currentToken.type.match(/Start/))
+                    ? "BedrockStartTag" : "BedrockEndTag";
                 if (data === ":") {
-                    tokenizer._variables.push({value: ""});
+                    tokenizer._currentToken.data.push({nodeValue: "", nodeName: ""});
                     tokenizer.setState(bedrock_object_name_state);
                 }
                 else
@@ -2767,6 +2765,9 @@ Tokenizer.prototype.tokenize = function(source) {
 		} else if (isAlpha(data)) {
 			tokenizer._currentToken.name += data.toLowerCase();
 		} else if (data === '>') {
+            if (isBedrockTag(tokenizer._currentToken.name))
+                tokenizer._currentToken.type = (tokenizer._currentToken.type.match(/Start/))
+                    ? "BedrockStartTag" : "BedrockEndTag";
 			tokenizer._emitCurrentToken();
 		} else if (data === '/') {
 			tokenizer.setState(self_closing_tag_state);
@@ -2794,7 +2795,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(data_state);
             shouldEmit = true;
         } else if (isAlphaNumeric(data) || data === '-' || data === '_') {
-            tokenizer._currentVariable().value += data.toLowerCase();
+            tokenizer._currentAttribute().name += data.toLowerCase();
             leavingThisState = false;
         } else if (data === '>') {
             shouldEmit = true;
@@ -2843,7 +2844,7 @@ Tokenizer.prototype.tokenize = function(source) {
         /* objects */
         } else if (data === '$') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
-            tokenizer.setState(before_bedrock_object_state);
+            tokenizer.setState(bedrock_object_state);
         /* Options */
         } else if (data === '-') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
@@ -2971,7 +2972,7 @@ Tokenizer.prototype.tokenize = function(source) {
         /* objects */
         } else if (data === '$') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
-            tokenizer.setState(before_bedrock_object_state);
+            tokenizer.setState(bedrock_object_state);
         } else if (data === '(') {
             tokenizer.setState(before_bedrock_expression_first_state);
         } else if (data === '>') {
@@ -2990,32 +2991,6 @@ Tokenizer.prototype.tokenize = function(source) {
         return true;
     }
 
-    function before_bedrock_object_state(buffer) {
-        var data = buffer.char();
-        if (data === InputStream.EOF) {
-            tokenizer._parseError("expected-object-name-got-eof");
-            buffer.unget(data);
-            tokenizer.setState(data_state);
-        } else if (isWhitespace(data)) {
-            tokenizer._parseError("syntax-error");
-            setStateByStack();
-        } else if (isAlpha(data)) {
-            tokenizer._variables.push({value: data.toLowerCase()});
-            tokenizer.setState(bedrock_object_state);
-        } else if (data === '>') {
-            tokenizer._parseError("syntax-error");
-            tokenizer._emitCurrentToken();
-        } else if (data === '\u0000') {
-            tokenizer._parseError("invalid-codepoint");
-            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
-        } else {
-            tokenizer._parseError("invalid-character-in-object-name", {data: data});
-            tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
-            setStateByStack();
-        }
-        return true;
-    }
-
     function bedrock_object_state(buffer) {
         var data = buffer.char();
         var leavingThisState = true;
@@ -3025,8 +3000,8 @@ Tokenizer.prototype.tokenize = function(source) {
             buffer.unget(data);
             tokenizer.setState(data_state);
             shouldEmit = true;
-        } else if (isAlphaNumeric(data) || data === '-' || data === '_') {
-            tokenizer._currentVariable().value += data.toLowerCase();
+        } else if (isAlphaNumeric(data) || data === '_') {
+            tokenizer._currentAttribute().name += data.toLowerCase();
             leavingThisState = false;
         } else if (data === '>') {
             shouldEmit = true;
@@ -3040,10 +3015,10 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(before_bedrock_object_attribute_state);
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
-            tokenizer._currentVariable().value += "\uFFFD";
+            tokenizer._currentAttribute().name += "\uFFFD";
         } else {
             tokenizer._parseError("invalid-character-in-object-name", {data: data});
-            tokenizer._currentVariable().value += data;
+            tokenizer._currentAttribute().name += data;
             leavingThisState = false;
         } 
 
@@ -3066,7 +3041,7 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (isWhitespace(data)) {
             tokenizer._parseError("syntax-error");
             setStateByStack();
-        } else if (isAlpha(data)) {
+        } else if (isAlpha(data) || data === '_') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(bedrock_object_attribute_state);
         } else if (data === '[') {
@@ -3101,7 +3076,7 @@ Tokenizer.prototype.tokenize = function(source) {
         /* objects */
         } else if (data === '$') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
-            tokenizer.setState(before_bedrock_object_state);
+            tokenizer.setState(bedrock_object_state);
         } else if (isDecimalDigit(data)) {
             pushState('before_array_index');
             tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""})
@@ -3217,7 +3192,7 @@ Tokenizer.prototype.tokenize = function(source) {
         /* objects */
         } else if (data === '$') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
-            tokenizer.setState(before_bedrock_object_state);
+            tokenizer.setState(bedrock_object_state);
         } else if (data === '(') {
             tokenizer.setState(before_bedrock_expression_first_state);
         } else if (data === '>') {
@@ -3395,6 +3370,9 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._parseError("invalid-expression", {data: "()"});
             setStateByStack();
             return true;
+        } else if (data === '-') {
+            tokenizer.setState(before_bedrock_operator_name_state);
+            return true;
         }
         /* Update the stack */
         pushState('bedrock_expression_first');
@@ -3416,7 +3394,7 @@ Tokenizer.prototype.tokenize = function(source) {
         /* objects */
         } else if (data === '$') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
-            tokenizer.setState(before_bedrock_object_state);
+            tokenizer.setState(bedrock_object_state);
         } else if (data === '(') {
             tokenizer.setState(before_bedrock_expression_first_state);
         } else if (data === '>') {
@@ -3583,7 +3561,7 @@ Tokenizer.prototype.tokenize = function(source) {
         /* objects */
         } else if (data === '$') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
-            tokenizer.setState(before_bedrock_object_state);
+            tokenizer.setState(bedrock_object_state);
         } else if (data === '(') {
             tokenizer.setState(before_bedrock_expression_first_state);
         } else if (data === ')') {
@@ -4626,6 +4604,7 @@ function TreeBuilder() {
 	this.document = null;
 	this.head = null;
 	this.form = null;
+    this.bedrock = new ElementStack();
 	this.openElements = new ElementStack();
 	this.activeFormattingElements = [];
 	this.insertionMode = null;
@@ -4643,8 +4622,57 @@ function TreeBuilder() {
 	var tree = this;
 	var modes = this.insertionModes = {};
 	modes.base = {
-		end_tag_handlers: {"-default": 'endTagOther'},
-		start_tag_handlers: {"-default": 'startTagOther'},
+        /* Make bedrock part of the base that way all states inherit it */
+		end_tag_handlers: {'-default': 'endTagOther'},
+		start_tag_handlers: {'-default'  : 'startTagOther'},
+        bedrock_start_tag_handlers: {
+            'array'       : 'startBedrockVoidTag',
+            'case'        : 'startBedrockVoidTag',
+            'catch'       : 'startBedrockVoidTag',
+            'else'        : 'startBedrockVoidTag',
+            'elseif'      : 'startBedrockVoidTag',
+            'exec'        : 'startBedrockVoidTag',
+            'flush'       : 'startBedrockVoidTag',
+            'foreach'     : 'startBedrockTag',
+            'hash'        : 'startBedrockVoidTag',
+            'if'          : 'startBedrockTag',
+            'iif'         : 'startBedrockVoidTag',
+            'include'     : 'startBedrockVoidTag',
+            'noexec'      : 'startBedrockTag',
+            'null'        : 'startBedrockVoidTag',
+            'open'        : 'startBedrockVoidTag',
+            'pebble'      : 'startBedrockVoidTag',
+            'pebbledef'   : 'startBedrockTag',
+            'plugin'      : 'startBedrockVoidTag',
+            'raise'       : 'startBedrockVoidTag',
+            'recordset'   : 'startBedrockVoidTag',
+            'sink'        : 'startBedrockTag',
+            'snippet'     : 'startBedrockTag',
+            'sql'         : 'startBedrockVoidTag',
+            'sqlcommit'   : 'startBedrockVoidTag',
+            'sqlconnect'  : 'startBedrockVoidTag',
+            'sqlrollback' : 'startBedrockVoidTag',
+            'sqlselect'   : 'startBedrockTag',
+            'sqltable'    : 'startBedrockVoidTag',
+            'trace'       : 'startBedrockVoidTag',
+            'try'         : 'startBedrockTag',
+            'unless'      : 'startBedrockTag',
+            'var'         : 'startBedrockVoidTag',
+            'while'       : 'startBedrockTag',
+        },
+        bedrock_end_tag_handlers: {
+            'foreach'     : 'endBedrockTag',
+            'if'          : 'endBedrockTag',
+            'noexec'      : 'endBedrockTag',
+            'pebbledef'   : 'endBedrockTag',
+            'sink'        : 'endBedrockTag',
+            'snippet'     : 'endBedrockTag',
+            'sqlselect'   : 'endBedrockTag',
+            'try'         : 'endBedrockTag',
+            'unless'      : 'endBedrockTag',
+            'while'       : 'endBedrockTag',
+        },
+
 		processEOF: function() {
 			tree.generateImpliedEndTags();
 			if (tree.openElements.length > 2) {
@@ -4662,7 +4690,7 @@ function TreeBuilder() {
 			tree.parseError('unexpected-doctype');
 		},
 		processStartTag: function(name, attributes, selfClosing) {
-			if (this[this.start_tag_handlers[name]]) {
+            if (this[this.start_tag_handlers[name]]) {
 				this[this.start_tag_handlers[name]](name, attributes, selfClosing);
 			} else if (this[this.start_tag_handlers["-default"]]) {
 				this[this.start_tag_handlers["-default"]](name, attributes, selfClosing);
@@ -4670,6 +4698,15 @@ function TreeBuilder() {
 				throw(new Error("No handler found for "+name));
 			}
 		},
+        processBedrockStartTag: function(name, attributes, selfClosing) {
+            if (this[this.bedrock_start_tag_handlers[name]]) {
+                this[this.bedrock_start_tag_handlers[name]](name, attributes, selfClosing);
+            } else if (this[this.start_tag_handlers["-default"]]) {
+                this[this.start_tag_handlers["-default"]](name, attributes, selfClosing);
+            } else {
+                throw(new Error("No handler found for "+name));
+            }
+        },
 		processEndTag: function(name) {
 			if (this[this.end_tag_handlers[name]]) {
 				this[this.end_tag_handlers[name]](name);
@@ -4679,9 +4716,30 @@ function TreeBuilder() {
 				throw(new Error("No handler found for "+name));
 			}
 		},
+        processBedrockEndTag: function(name) {
+            if (this[this.bedrock_end_tag_handlers[name]]) {
+                this[this.bedrock_end_tag_handlers[name]](name);
+            } else if (this[this.end_tag_handlers["-default"]]) {
+                this[this.end_tag_handlers["-default"]](name);
+            } else {
+                throw(new Error("No handler found for "+name));
+            }
+        },
 		startTagHtml: function(name, attributes) {
 			modes.inBody.startTagHtml(name, attributes);
-		}
+		},
+        startBedrockTag: function(name, attributes) {
+            tree.insertBedrockElement(name, attributes);
+        },
+        endBedrockTag: function(name, attributes) {
+            if (!tree.openElements.inScope(name))
+                tree.parseError("unexpected-end-tag", {name: name});
+            else
+                tree.openElements.popUntilPopped(name);
+        },
+        startBedrockVoidTag: function(name, attributes) {
+            tree.insertSelfClosingBedrockElement(name, attributes);
+        }
 	};
 
 	modes.initial = Object.create(modes.base);
@@ -4828,7 +4886,6 @@ function TreeBuilder() {
 		this.anythingElse();
 		tree.insertionMode.processEndTag(name);
 	};
-
 	modes.initial.anythingElse = function() {
 		tree.compatMode = 'quirks';
 		tree.setInsertionMode('beforeHTML');
@@ -4838,42 +4895,9 @@ function TreeBuilder() {
 
 	modes.beforeHTML.start_tag_handlers = {
 		html: 'startTagHtml',
-        null: 'startTagBedrock',
-        array       : 'startTagVoidFormatting',
-        case        : 'startTagVoidFormatting',
-        catch       : 'startTagVoidFormatting',
-        else        : 'startTagVoidFormatting',
-        elseif      : 'startTagVoidFormatting',
-        exec        : 'startTagVoidFormatting',
-        flush       : 'startTagVoidFormatting',
-        foreach     : 'startTagCloseP',
-        hash        : 'startTagVoidFormatting',
-        if          : 'startTagCloseP',
-        iif         : 'startTagVoidFormatting',
-        include     : 'startTagVoidFormatting',
-        noexec      : 'startTagCloseP', 
-        null        : 'startTagVoidFormatting',
-        open        : 'startTagVoidFormatting',
-        pebble      : 'startTagVoidFormatting',
-        pebbledef   : 'startTagCloseP',
-        plugin      : 'startTagVoidFormatting',
-        raise       : 'startTagVoidFormatting',
-        recordset   : 'startTagVoidFormatting',
-        sink        : 'startTagCloseP',
-        snippet     : 'startTagCloseP',
-        sql         : 'startTagVoidFormatting',
-        sqlcommit   : 'startTagVoidFormatting',
-        sqlconnect  : 'startTagVoidFormatting',
-        sqlrollback : 'startTagVoidFormatting',
-        sqlselect   : 'startTagCloseP',
-        sqltable    : 'startTagVoidFormatting',
-        trace       : 'startTagVoidFormatting',
-        try         : 'startTagCloseP',
-        unless      : 'startTagCloseP',
-        var         : 'startTagVoidFormatting',
-        while       : 'startTagCloseP',
 		'-default': 'startTagOther'
 	};
+
 
 	modes.beforeHTML.processEOF = function() {
 		this.anythingElse();
@@ -4896,10 +4920,6 @@ function TreeBuilder() {
 		tree.insertHtmlElement(attributes);
 		tree.setInsertionMode('beforeHead');
 	};
-
-    modes.beforeHTML.startTagBedrock = function(name, attributes, selfClosing) {
-        tree.insertHtmlElement(attributes);
-    }
 
 	modes.beforeHTML.startTagOther = function(name, attributes, selfClosing) {
 		this.anythingElse();
@@ -5391,7 +5411,7 @@ function TreeBuilder() {
         svg: 'startTagSVG',
         rt: 'startTagRpRt',
         rp: 'startTagRpRt',
-        array       : 'startTagVoidFormatting',
+/*        array       : 'startTagVoidFormatting',
         case        : 'startTagVoidFormatting',
         catch       : 'startTagVoidFormatting',
         else        : 'startTagVoidFormatting',
@@ -5423,7 +5443,7 @@ function TreeBuilder() {
         try         : 'startTagCloseP',
         unless      : 'startTagCloseP',
         var         : 'startTagVoidFormatting',
-        while       : 'startTagCloseP',
+        while       : 'startTagCloseP',*/
         "-default": 'startTagOther'
 	};
 
@@ -7142,6 +7162,13 @@ TreeBuilder.prototype.startTokenization = function(tokenizer) {
 	}
 };
 
+TreeBuilder.prototype.isBedrockTag = function(name) {
+    return name.match("array|case|catch|else|elseif|exec|flush|foreach|hash|if|iif|include"+
+                "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
+                "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
+                "|sqltable|trace|try|unless|var|while");
+}
+
 TreeBuilder.prototype.processToken = function(token) {
 	this.selfClosingFlagAcknowledged = false;
 
@@ -7174,12 +7201,18 @@ TreeBuilder.prototype.processToken = function(token) {
 	case 'Comment':
 		insertionMode.processComment(token.data);
 		break;
-	case 'StartTag':
-		insertionMode.processStartTag(token.name, token.data, token.selfClosing);
-		break;
-	case 'EndTag':
-		insertionMode.processEndTag(token.name);
-		break;
+    case 'StartTag':
+        insertionMode.processStartTag(token.name, token.data, token.selfClosing);
+        break;
+    case 'EndTag':
+        insertionMode.processEndTag(token.name);
+        break;
+    case 'BedrockStartTag':
+        insertionMode.processBedrockStartTag(token.name, token.data, token.selfClosing);
+        break;
+    case 'BedrockEndTag':
+        insertionMode.processBedrockEndTag(token.name);
+        break;
 	case 'Doctype':
 		insertionMode.processDoctype(token.name, token.publicId, token.systemId, token.forceQuirks);
 		break;
@@ -7257,6 +7290,14 @@ TreeBuilder.prototype.insertElement = function(name, attributes, namespaceURI, s
 		this.openElements.push(new StackItem(namespaceURI, name, attributes, element));
 };
 
+TreeBuilder.prototype.insertBedrockElement = function(name, attributes, namespaceURI, selfClosing) {
+    if (!namespaceURI)
+        namespaceURI = "http://www.w3.org/1999/xhtml";
+    var element = this.createElement(namespaceURI, name, attributes);
+    if (!selfClosing)
+        this.openElements.push(new StackItem(namespaceURI, name, attributes, element));
+};
+
 TreeBuilder.prototype.insertFormattingElement = function(name, attributes) {
 	this.insertElement(name, attributes, "http://www.w3.org/1999/xhtml");
 	this.appendElementToActiveFormattingElements(this.currentStackItem());
@@ -7265,6 +7306,11 @@ TreeBuilder.prototype.insertFormattingElement = function(name, attributes) {
 TreeBuilder.prototype.insertSelfClosingElement = function(name, attributes) {
 	this.selfClosingFlagAcknowledged = true;
 	this.insertElement(name, attributes, "http://www.w3.org/1999/xhtml", true);
+};
+
+TreeBuilder.prototype.insertSelfClosingBedrockElement = function(name, attributes) {
+    this.selfClosingFlagAcknowledged = true;
+    this.insertBedrockElement(name, attributes, "http://www.w3.org/1999/xhtml", true);
 };
 
 TreeBuilder.prototype.insertForeignElement = function(name, attributes, namespaceURI, selfClosing) {
