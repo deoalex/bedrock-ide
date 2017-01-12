@@ -2079,7 +2079,7 @@ var InputStream = _dereq_('./InputStream').InputStream;
 var EntityParser = _dereq_('./EntityParser').EntityParser;
 
 function isBedrockTag(name) {
-    return name.match("array|case|catch|else|elseif|exec|flush|foreach|hash|if|iif|include"+
+    return name.match("array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
                 "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
                 "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
                 "|sqltable|trace|try|unless|var|while");
@@ -4606,6 +4606,8 @@ function TreeBuilder() {
 	this.form = null;
     this.bedrock = new ElementStack();
 	this.openElements = new ElementStack();
+    this.conditionalStack = [];
+    this.tryStack = [];
 	this.activeFormattingElements = [];
 	this.insertionMode = null;
 	this.insertionModeName = "";
@@ -4631,6 +4633,7 @@ function TreeBuilder() {
             'catch'       : 'startBedrockVoidTag',
             'else'        : 'startBedrockVoidTag',
             'elseif'      : 'startBedrockVoidTag',
+            'elsif'      : 'startBedrockVoidTag',
             'exec'        : 'startBedrockVoidTag',
             'flush'       : 'startBedrockVoidTag',
             'foreach'     : 'startBedrockTag',
@@ -4732,10 +4735,7 @@ function TreeBuilder() {
             tree.insertBedrockElement(name, attributes);
         },
         endBedrockTag: function(name, attributes) {
-            if (!tree.openElements.inScope(name))
-                tree.parseError("unexpected-end-tag", {name: name});
-            else
-                tree.openElements.popUntilPopped(name);
+            tree.removeBedrockElement(name, attributes);
         },
         startBedrockVoidTag: function(name, attributes) {
             tree.insertSelfClosingBedrockElement(name, attributes);
@@ -5411,39 +5411,6 @@ function TreeBuilder() {
         svg: 'startTagSVG',
         rt: 'startTagRpRt',
         rp: 'startTagRpRt',
-/*        array       : 'startTagVoidFormatting',
-        case        : 'startTagVoidFormatting',
-        catch       : 'startTagVoidFormatting',
-        else        : 'startTagVoidFormatting',
-        elseif      : 'startTagVoidFormatting',
-        exec        : 'startTagVoidFormatting',
-        flush       : 'startTagVoidFormatting',
-        foreach     : 'startTagCloseP',
-        hash        : 'startTagVoidFormatting',
-        if          : 'startTagCloseP',
-        iif         : 'startTagVoidFormatting',
-        include     : 'startTagVoidFormatting',
-        noexec      : 'startTagCloseP', 
-        null        : 'startTagVoidFormatting',
-        open        : 'startTagVoidFormatting',
-        pebble      : 'startTagVoidFormatting',
-        pebbledef   : 'startTagCloseP',
-        plugin      : 'startTagVoidFormatting',
-        raise       : 'startTagVoidFormatting',
-        recordset   : 'startTagVoidFormatting',
-        sink        : 'startTagCloseP',
-        snippet     : 'startTagCloseP',
-        sql         : 'startTagVoidFormatting',
-        sqlcommit   : 'startTagVoidFormatting',
-        sqlconnect  : 'startTagVoidFormatting',
-        sqlrollback : 'startTagVoidFormatting',
-        sqlselect   : 'startTagCloseP',
-        sqltable    : 'startTagVoidFormatting',
-        trace       : 'startTagVoidFormatting',
-        try         : 'startTagCloseP',
-        unless      : 'startTagCloseP',
-        var         : 'startTagVoidFormatting',
-        while       : 'startTagCloseP',*/
         "-default": 'startTagOther'
 	};
 
@@ -7163,7 +7130,7 @@ TreeBuilder.prototype.startTokenization = function(tokenizer) {
 };
 
 TreeBuilder.prototype.isBedrockTag = function(name) {
-    return name.match("array|case|catch|else|elseif|exec|flush|foreach|hash|if|iif|include"+
+    return name.match("array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
                 "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
                 "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
                 "|sqltable|trace|try|unless|var|while");
@@ -7291,11 +7258,44 @@ TreeBuilder.prototype.insertElement = function(name, attributes, namespaceURI, s
 };
 
 TreeBuilder.prototype.insertBedrockElement = function(name, attributes, namespaceURI, selfClosing) {
+    if (name.match(/^(if|unless)$/)) {
+        this.conditionalStack.push('elseif');
+    } else if (name === 'try') {
+        this.tryStack.push(1);
+    } else if (name.match(/^else?if$/)) {
+        var length = this.conditionalStack.length;
+        if (length === 0)
+            this.parseError('else-outside-condition');
+        else if (this.conditionalStack[length - 1] === 'else')
+            this.parseError('elseif-after-else');
+    } else if (name === 'else') {
+        var length = this.conditionalStack.length;
+        if (length === 0)
+            this.parseError('else-outside-condition');
+        else if (this.conditionalStack[length - 1] === 'else')
+            this.parseError('double-else');
+        else
+            this.conditionalStack[length - 1] = 'else';
+    } else if (name === 'catch' && this.tryStack.length === 0) {
+        this.parseError('catch-outside-try');
+    }
     if (!namespaceURI)
         namespaceURI = "http://www.w3.org/1999/xhtml";
     var element = this.createElement(namespaceURI, name, attributes);
     if (!selfClosing)
         this.openElements.push(new StackItem(namespaceURI, name, attributes, element));
+};
+
+TreeBuilder.prototype.removeBedrockElement = function(name, attributes) {
+    if (name.match(/^(if|unless)$/))
+        this.conditionalStack.pop();
+    else if (name === 'try')
+        this.tryStack.pop();
+
+    if (!this.openElements.inScope(name))
+        this.parseError("unexpected-end-tag", {name: name});
+    else
+        this.openElements.popUntilPopped(name);
 };
 
 TreeBuilder.prototype.insertFormattingElement = function(name, attributes) {
@@ -7978,7 +7978,15 @@ module.exports={
     "invalid-operator-name":
         "invalid-operator",
     "array-index-not-terminated":
-        "Array index not terminated. Missing ']'?"
+        "Array index not terminated. Missing ']'?",
+    "else-outside-condition":
+        "Unexpected else tag found outside of if/unless block",
+    "elseif-after-else":
+        "Unreachable elseif found after else tag",
+    "double-else":
+        "Unreachable else found after else tag",
+    "catch-outside-try":
+        "Unexpected catch tag found outside of try block",
 }
 },
 {}],

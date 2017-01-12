@@ -1506,6 +1506,7 @@ var bTagMap = lang.createMap({
     iif         : 'condition',
     else        : 'condition',
     elseif      : 'condition',
+    elsif      : 'condition',
     include     : 'function',
     noexec      : 'function',
     null        : 'function',
@@ -1529,7 +1530,7 @@ var bTagMap = lang.createMap({
     var         : 'object',
     while       : 'loop'
 });
-var bTagRegex = "array|case|catch|elseif|else|exec|flush|foreach|hash|iif|if|include"+
+var bTagRegex = "array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|iif|if|include"+
                 "|noexec|null|open|pebbledef|pebble|plugin|raise|recordset"+
                 "|sink|snippet|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
                 "|sqltable|sql|trace|try|unless|var|while";
@@ -2505,7 +2506,7 @@ var XmlBehaviour = require("./behaviour/xml").XmlBehaviour;
 var bedrockFoldMode = require("./folding/bedrock").FoldMode;
 var bedrockCompletions = require("./bedrock_completions").bedrockCompletions;
 var WorkerClient = require("../worker/worker_client").WorkerClient;
-var voidElements = ["area", "base", "br", "col", "embed", "hr", "img", "input", "keygen", "link", "meta", "menuitem", "param", "source", "track", "wbr", "array", "case", "catch", "else", "elseif", "exec", "flush", "hash", "iif", "include", "null", "open", "pebble", "plugin", "raise", "recordset", "sql", "sqlcommit", "sqlconnect", "sqlrollback", "sqltable", "trace", "var"];
+var voidElements = ["area", "base", "br", "col", "embed", "hr", "img", "input", "keygen", "link", "meta", "menuitem", "param", "source", "track", "wbr", "array", "case", "catch", "else", "elsif", "elseif", "exec", "flush", "hash", "iif", "include", "null", "open", "pebble", "plugin", "raise", "recordset", "sql", "sqlcommit", "sqlconnect", "sqlrollback", "sqltable", "trace", "var"];
 var optionalEndTags = ["li", "dt", "dd", "p", "rt", "rp", "optgroup", "option", "colgroup", "td", "th"];
 
 var Mode = function(options) {
