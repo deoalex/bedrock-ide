@@ -2879,7 +2879,7 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
-        } else if (data.matches(/[()]/)) {
+        } else if (data.match(/[()]/)) {
             tokenizer._parseError("invalid-character-in-bedrock-tag", {data: data});
             tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
             tokenizer.setState(bedrock_content_state);
@@ -3293,17 +3293,18 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(data_state);
         } else if (isWhitespace(data)) {
             setStateByStack();
+        } else if (data.match(/\)|]|>/)) {
+            buffer.start--;
+            setStateByStack();
         } else if (data === '{') {
             tokenizer._currentAttribute().nodeValue += data;
             tokenizer.setState(bedrock_q_string_state);
-        } else if (isAlphaNumeric(data) || data === '-' || data === '_') {
-            tokenizer._currentAttribute().nodeValue += data;
-            tokenizer.setState(bedrock_bareword_state);
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentAttribute().nodeValue += "\uFFFD";
         } else {
-            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|[}&]");
+            tokenizer._currentAttribute().nodeValue += data;
+            tokenizer.setState(bedrock_bareword_state);
         }
         return true;
     }
@@ -3347,11 +3348,13 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._parseError("invalid-character-in-bareword", {data: data});
             tokenizer._currentAttribute().nodeValue += data;
             buffer.commit();
+        } else if (data === '*') {
+            tokenizer._parseError("syntax-error-dereference-scalars");
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentAttribute().nodeValue += "\uFFFD";
         } else {
-            var o = buffer.matchUntil("\u0000|["+ "\t\n\v\f\x20\r" + "<>\"'=`,)" +"]|]|-");
+            var o = buffer.matchUntil("\u0000|["+ "\t\n\v\f\x20\r" + "<>\"'%*=`,)" +"]|]|-");
             if (o === InputStream.EOF) {
                 tokenizer._parseError("eof-in-attribute-value-no-quotes");
                 tokenizer._emitCurrentToken();
@@ -3400,10 +3403,14 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data === '>') {
             tokenizer._parseError("expression-not-terminated");
             tokenizer._emitCurrentToken();
+        } else if (isDecimalDigit(data) || data === '-') {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(number_state);
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
         } else {
+            tokenizer._parseError("syntax-error-bareword-in-expression");
             tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
             tokenizer.setState(bedrock_bareword_state);
         }
@@ -3450,7 +3457,9 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
         } else {
-            /* invalid token as operator */
+            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|[\t\n\v\f\x20\r)>]");
+            tokenizer._parseError("invalid-operator", {data: tokenizer._currentAttribute().nodeValue});
+            tokenizer.setState(after_bedrock_operator_state);
         }
         return true;
     }
@@ -3570,10 +3579,14 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data === '>') {
             tokenizer._parseError("expression-not-terminated");
             tokenizer._emitCurrentToken();
+        } else if (isDecimalDigit(data) || data === '-') {
+            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
+            tokenizer.setState(number_state);
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
         } else {
+            tokenizer._parseError('syntax-error-bareword-in-expression');
             tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
             tokenizer.setState(bedrock_bareword_state);
         }
@@ -3607,13 +3620,13 @@ Tokenizer.prototype.tokenize = function(source) {
             buffer.unget(data);
             tokenizer.setState(data_state);
         } else if (isWhitespace(data) || data === ']' || data === ')' || data === '>') {
-            tokenizer._currentToken.data.push({nodeName: "", nodeValue: data});
+            buffer.start--;
             setStateByStack();
-        } else if (isDecimalDigit(data)) {
-            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|[^\d]");
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentAttribute().nodeValue += "\uFFFD";
+        } else if (isDecimalDigit(data)) {
+            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|[^\d]");
         } else {
             tokenizer._parseError("invalid-character-in-number", {data: data});
             setStateByStack();
@@ -4633,7 +4646,7 @@ function TreeBuilder() {
             'catch'       : 'startBedrockVoidTag',
             'else'        : 'startBedrockVoidTag',
             'elseif'      : 'startBedrockVoidTag',
-            'elsif'      : 'startBedrockVoidTag',
+            'elsif'       : 'startBedrockVoidTag',
             'exec'        : 'startBedrockVoidTag',
             'flush'       : 'startBedrockVoidTag',
             'foreach'     : 'startBedrockTag',
@@ -7749,6 +7762,8 @@ module.exports={
         "Invalid character '{data}' found in operator name",
     "invalid-character-in-number":
         "Bareword found where number is expected '{data}'",
+    "invalid-operator":
+        "Invalid operator '{data}'",
 	"duplicate-attribute":
 		"Dropped duplicate attribute '{name}' on tag.",
 	"expected-end-of-tag-but-got-eof":
@@ -7781,6 +7796,8 @@ module.exports={
 		"Unexpected ! after -- in comment.",
 	"incorrect-comment":
 		"Incorrect comment.",
+    "eof-in-bareword":
+        "Unexpected end of file in bareword",
 	"eof-in-comment":
 		"Unexpected end of file in comment.",
 	"eof-in-comment-end-dash":
@@ -7961,6 +7978,10 @@ module.exports={
 		"Unexpected {name}. Expected table content.",
     "syntax-error":
         "Syntax error.",
+    "syntax-error-dereference-scalars":
+        "Syntax error - dereference using scalars",
+    "syntax-error-bareword-in-expression":
+        "Syntax error - barewords are not allowed inside of expressions",
     "missing-parameter-separator":
         "Missing parameter separator near '{data}'.",
     "invalid-token":
