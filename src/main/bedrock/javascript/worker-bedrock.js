@@ -3296,7 +3296,7 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data.match(/\)|]|>/)) {
             buffer.start--;
             setStateByStack();
-        } else if (data === '{') {
+        } else if (data.match(/[{([:]/)) {
             tokenizer._currentAttribute().nodeValue += data;
             tokenizer.setState(bedrock_q_string_state);
         } else if (data === '\u0000') {
@@ -3311,11 +3311,19 @@ Tokenizer.prototype.tokenize = function(source) {
 
     function bedrock_q_string_state(buffer) {
         var data = buffer.char();
+        var delimiter;
+        switch (tokenizer._currentAttribute().nodeValue.charAt(1)) {
+            case '{' : delimiter = '[}&]'; break;
+            case '(' : delimiter = '[)&]'; break;
+            case '[' : delimiter = ']|&'; break;
+            case ':' : delimiter = '[:&]'; break;
+        }
         if (data === InputStream.EOF) {
             tokenizer._parseError("eof-in-string");
             buffer.unget(data);
             tokenizer.setState(data_state);
-        } else if (data === "}") {
+        } else if (data.match(delimiter)) {
+            tokenizer._currentAttribute().nodeValue += data;
             setStateByStack();
         } else if (data === '&') {
             this._additionalAllowedCharacter = "'";
@@ -3324,7 +3332,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentAttribute().nodeValue += "\uFFFD";
         } else {
-            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|[}&]");
+            tokenizer._currentAttribute().nodeValue += data + buffer.matchUntil("\u0000|"+delimiter+"");
         }
         return true;
     }

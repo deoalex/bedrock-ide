@@ -1622,10 +1622,37 @@ var bedrockHighlightRules = function() {
                 }]
             }, {
                 token : "bedrock_string", // ' string start
-                regex : "q{",
+                regex : "q?q{",
                 push : [{
                     token : "bedrock_string",
                     regex: "}",
+                    defaultToken : "bedrock_string",
+                    next : "bedrock_tag_contents"
+                }]
+            }, {
+                token : "bedrock_string", // ' string start
+                regex : "q?q[(]",
+                push : [{
+                    token : "bedrock_string",
+                    regex: "[)]",
+                    defaultToken : "bedrock_string",
+                    next : "bedrock_tag_contents"
+                }]
+            }, {
+                token : "bedrock_string", // ' string start
+                regex : "q?q[[]",
+                push : [{
+                    token : "bedrock_string",
+                    regex: "]",
+                    defaultToken : "bedrock_string",
+                    next : "bedrock_tag_contents"
+                }]
+            }, {
+                token : "bedrock_string", // ' string start
+                regex : "q?q:",
+                push : [{
+                    token : "bedrock_string",
+                    regex: ":",
                     defaultToken : "bedrock_string",
                     next : "bedrock_tag_contents"
                 }]
