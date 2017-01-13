@@ -1530,6 +1530,21 @@ var bTagMap = lang.createMap({
     var         : 'object',
     while       : 'loop'
 });
+
+function bedrock_tag_start(start, tag, varName, end) {
+    var group = bTagMap[tag];
+    var classes = [];
+    classes.push("bedrock.tag.punctuation." + (start == "<" ? "" : "end-") + "tag-open.xml");
+    classes.push("bedrock.tag" + (group ? "." + group : "") + ".tag-name.xml");
+    if (varName != null)
+        classes.push("bedrock_variable_def");
+    if (end === '>')
+        classes.push("bedrock.tag.punctuation." + (start == "<" ? "" : "end-") + "tag-open.xml");
+    else 
+        classes.push("text.tag-whitespace");
+    return classes;
+}
+
 var bTagRegex = "array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|iif|if|include"+
                 "|noexec|null|open|pebbledef|pebble|plugin|raise|recordset"+
                 "|sink|snippet|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
@@ -1565,24 +1580,44 @@ var bedrockHighlightRules = function() {
         tag: [
             /* Bedrock tag rules */
             {
-                token : function(start, tag) {
-                var group = bTagMap[tag];
-                return ["bedrock.tag.punctuation." + (start == "<" ? "" : "end-") + "tag-open.xml",
-                    "bedrock.tag" + (group ? "." + group : "") + ".tag-name.xml"];
-            },
-                regex : "(</?)("+bTagRegex+")",
+                token : function(start, tag, varName, end) {
+                    return bedrock_tag_start(start, tag, null, end);
+                },
+                regex : "(</?)("+bTagRegex+")(\\s)",
                 next: "bedrock_tag_contents"
+            },
+            {
+                token : function(start, tag, varName, end) {
+                    return bedrock_tag_start(start, tag, null, end);
+                },
+                regex : "(</?)("+bTagRegex+")(>)",
+                next: "start"
+            },
+            {
+                token : function(start, tag, varName, end) {
+                    return bedrock_tag_start(start, tag, varName, end);
+                },
+                regex : "(</?)("+bTagRegex+")(:[a-zA-Z_$\x7f-\uffff][a-zA-Z0-9_\x7f-\uffff]*)(\\s)",
+                next: "bedrock_tag_contents"
+            },
+            {
+                token : function(start, tag, varName, end) {
+                    return bedrock_tag_start(start, tag, varName, end);
+                },
+                regex : "(</?)("+bTagRegex+")(:[a-zA-Z_$\x7f-\uffff][a-zA-Z0-9_\x7f-\uffff]*)(>)",
+                next: "start"
             },
             /* HTML Tag rules */
             {
                 token : function(start, tag) {
-                var group = tagMap[tag];
-                return ["meta.tag.punctuation." + (start == "<" ? "" : "end-") + "tag-open.xml",
-                    "meta.tag" + (group ? "." + group : "") + ".tag-name.xml"];
-            },
-            regex : "(</?)([-_a-zA-Z0-9:.]+)",
-            next: "html_tag_contents"
-        }],
+                    var group = tagMap[tag];
+                    return ["meta.tag.punctuation." + (start == "<" ? "" : "end-") + "tag-open.xml",
+                        "meta.tag" + (group ? "." + group : "") + ".tag-name.xml"];
+                },
+                regex : "(</?)([-_a-zA-Z0-9:.]+)",
+                next: "html_tag_contents"
+            }
+        ],
         html_tag_contents: [
             {include : "attributes"},
             {token : "meta.tag.punctuation.tag-close.xml", regex : "/?>", next : "start"}

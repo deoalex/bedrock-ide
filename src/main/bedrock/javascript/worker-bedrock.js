@@ -1468,6 +1468,7 @@ function isSelectScopeMarker(node) {
 }
 function ElementStack() {
 	this.elements = [];
+    this.bedrockElements = [];
 	this.rootNode = null;
 	this.headElement = null;
 	this.bodyElement = null;
@@ -1480,9 +1481,20 @@ ElementStack.prototype._inScope = function(localName, isMarker) {
 		if (isMarker(node))
 			return false;
 	}
+};ElementStack.prototype._inBedrockScope = function(localName, isMarker) {
+    for (var i = this.bedrockElements.length - 1; i >= 0; i--) {
+        var node = this.bedrockElements[i];
+        if (node.localName === localName)
+            return true;
+        if (isMarker(node))
+            return false;
+    }
 };
 ElementStack.prototype.push = function(item) {
 	this.elements.push(item);
+};
+ElementStack.prototype.pushBedrock = function(item) {
+    this.bedrockElements.push(item);
 };
 ElementStack.prototype.pushHtmlElement = function(item) {
 	this.rootNode = item.node;
@@ -1496,9 +1508,11 @@ ElementStack.prototype.pushBodyElement = function(item) {
 	this.bodyElement = item.node;
 	this.push(item);
 };
-
 ElementStack.prototype.pop = function() {
 	return this.elements.pop();
+};
+ElementStack.prototype.popBedrock = function() {
+    return this.bedrockElements.pop();
 };
 ElementStack.prototype.remove = function(item) {
 	this.elements.splice(this.elements.indexOf(item), 1);
@@ -1508,6 +1522,12 @@ ElementStack.prototype.popUntilPopped = function(localName) {
 	do {
 		element = this.pop();
 	} while (element && element.localName != localName);
+};
+ElementStack.prototype.popUntilPoppedBedrock = function(localName) {
+    var element;
+    do {
+        element = this.popBedrock();
+    } while (element && element.localName != localName);
 };
 ElementStack.prototype.popUntilTableScopeMarker = function() {
 	while (!isTableScopeMarker(this.top))
@@ -1531,6 +1551,9 @@ ElementStack.prototype.contains = function(element) {
 };
 ElementStack.prototype.inScope = function(localName) {
 	return this._inScope(localName, isScopeMarker);
+};
+ElementStack.prototype.inBedrockScope = function(localName) {
+    return this._inBedrockScope(localName, isScopeMarker);
 };
 ElementStack.prototype.inListItemScope = function(localName) {
 	return this._inScope(localName, isListItemScopeMarker);
@@ -2079,10 +2102,10 @@ var InputStream = _dereq_('./InputStream').InputStream;
 var EntityParser = _dereq_('./EntityParser').EntityParser;
 
 function isBedrockTag(name) {
-    return name.match("array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
+    return name.match("^(array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
                 "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
                 "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
-                "|sqltable|trace|try|unless|var|while");
+                "|sqltable|trace|try|unless|var|while)$");
 }
 
 function isWhitespace(c){
@@ -7082,10 +7105,10 @@ TreeBuilder.prototype.startTokenization = function(tokenizer) {
 };
 
 TreeBuilder.prototype.isBedrockTag = function(name) {
-    return name.match("array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
+    return name.match("^(array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
                 "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
                 "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
-                "|sqltable|trace|try|unless|var|while");
+                "|sqltable|trace|try|unless|var|while)$");
 }
 
 TreeBuilder.prototype.processToken = function(token) {
@@ -7235,7 +7258,7 @@ TreeBuilder.prototype.insertBedrockElement = function(name, attributes, namespac
         namespaceURI = "http://www.w3.org/1999/xhtml";
     var element = this.createElement(namespaceURI, name, attributes);
     if (!selfClosing)
-        this.openElements.push(new StackItem(namespaceURI, name, attributes, element));
+        this.openElements.pushBedrock(new StackItem(namespaceURI, name, attributes, element));
 };
 
 TreeBuilder.prototype.removeBedrockElement = function(name, attributes) {
@@ -7244,10 +7267,10 @@ TreeBuilder.prototype.removeBedrockElement = function(name, attributes) {
     else if (name === 'try')
         this.tryStack.pop();
 
-    if (!this.openElements.inScope(name))
+    if (!this.openElements.inBedrockScope(name))
         this.parseError("unexpected-end-tag", {name: name});
     else
-        this.openElements.popUntilPopped(name);
+        this.openElements.popUntilPoppedBedrock(name);
 };
 
 TreeBuilder.prototype.insertFormattingElement = function(name, attributes) {
