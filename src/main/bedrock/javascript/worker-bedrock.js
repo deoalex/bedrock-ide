@@ -2873,7 +2873,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(before_bedrock_option_state);
         } else if (data === '(') {
-            tokenizer.setState(before_bedrock_expression_first_state);
+            tokenizer.setState(before_bedrock_expression_state);
         } else if (data === '>') {
             tokenizer._emitCurrentToken();
         } else if (data === '\u0000') {
@@ -2997,7 +2997,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(bedrock_object_state);
         } else if (data === '(') {
-            tokenizer.setState(before_bedrock_expression_first_state);
+            tokenizer.setState(before_bedrock_expression_state);
         } else if (data === '>') {
             tokenizer._parseError("missing-option-value");
             tokenizer._emitCurrentToken();
@@ -3217,7 +3217,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(bedrock_object_state);
         } else if (data === '(') {
-            tokenizer.setState(before_bedrock_expression_first_state);
+            tokenizer.setState(before_bedrock_expression_state);
         } else if (data === '>') {
             tokenizer._parseError("missing-end-bracket");
             tokenizer._emitCurrentToken();
@@ -3396,7 +3396,7 @@ Tokenizer.prototype.tokenize = function(source) {
         return true;
     }
 
-    function before_bedrock_expression_first_state(buffer) {
+    function before_bedrock_expression_state(buffer) {
         var data = buffer.char();
         if (isWhitespace(data))
             return true;
@@ -3409,7 +3409,7 @@ Tokenizer.prototype.tokenize = function(source) {
             return true;
         }
         /* Update the stack */
-        pushState('bedrock_expression_first');
+        pushState('bedrock_expression');
         if (data === InputStream.EOF) {
             tokenizer._parseError("expected-expression-value-got-eof");
             buffer.unget(data);
@@ -3430,7 +3430,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(bedrock_object_state);
         } else if (data === '(') {
-            tokenizer.setState(before_bedrock_expression_first_state);
+            tokenizer.setState(before_bedrock_expression_state);
         } else if (data === '>') {
             tokenizer._parseError("expression-not-terminated");
             tokenizer._emitCurrentToken();
@@ -3504,7 +3504,7 @@ Tokenizer.prototype.tokenize = function(source) {
             buffer.unget(data);
             tokenizer.setState(data_state);
         } else if (isWhitespace(data)) {
-            tokenizer.setState(before_bedrock_expression_first_state);
+            tokenizer.setState(before_bedrock_expression_state);
         } else if (data === '-') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(bedrock_operator_name_state);
@@ -3563,7 +3563,7 @@ Tokenizer.prototype.tokenize = function(source) {
 
     function after_bedrock_operator_state(buffer) {
         if (isWhitespace(tokenizer._currentAttribute().nodeValue)) {
-            tokenizer.setState(before_bedrock_expression_first_state);
+            tokenizer.setState(before_bedrock_expression_state);
             return true;
         }
         var data = buffer.char();
@@ -3575,7 +3575,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._parseError("expected-white-space-got", {data: data});
             buffer.start--;
         }
-        tokenizer.setState(before_bedrock_expression_first_state);
+        tokenizer.setState(before_bedrock_expression_state);
         return true;
     }
 
@@ -3609,11 +3609,8 @@ Tokenizer.prototype.tokenize = function(source) {
             case 'bedrock_content' :
                 tokenizer.setState(before_bedrock_content_state);
                 return;
-            case 'bedrock_expression_first' :
+            case 'bedrock_expression' :
                 tokenizer.setState(before_bedrock_operator_state);
-                return;
-            case 'bedrock_expression_second' :
-                tokenizer.setState(after_bedrock_expression_second_state);
                 return;
             case 'bedrock_method_parameter' :
                 tokenizer.setState(after_bedrock_method_parameter_state);
