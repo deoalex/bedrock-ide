@@ -3432,11 +3432,14 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._parseError("expected-white-space-got-eof");
             buffer.unget(data);
             tokenizer.setState(data_state);
+        } else if (data === ')') {
+            setStateByStack();
         } else if (!isWhitespace(data)) {
             tokenizer._parseError("expected-white-space-got", {data: data});
             buffer.start--;
+        } else {
+            tokenizer.setState(bedrock_operator_state)
         }
-        tokenizer.setState(bedrock_operator_state)
         return true;
     }
 
@@ -3456,7 +3459,6 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data === '-') {
             tokenizer.setState(before_bedrock_operator_name_state);
         } else if (data === ')') {
-            tokenizer._parseError("invalid-expression-no-data");
             setStateByStack();
         } else if (data === '>') {
             tokenizer._parseError("expression-not-terminated");
@@ -3479,7 +3481,7 @@ Tokenizer.prototype.tokenize = function(source) {
             buffer.unget(data);
             tokenizer.setState(data_state);
         } else if (isWhitespace(data)) {
-            tokenizer.setState(before_bedrock_expression_second_state);
+            tokenizer.setState(before_bedrock_expression_first_state);
         } else if (data === '-') {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(bedrock_operator_name_state);
@@ -3538,7 +3540,7 @@ Tokenizer.prototype.tokenize = function(source) {
 
     function after_bedrock_operator_state(buffer) {
         if (isWhitespace(tokenizer._currentAttribute().nodeValue)) {
-            tokenizer.setState(before_bedrock_expression_second_state);
+            tokenizer.setState(before_bedrock_expression_first_state);
             return true;
         }
         var data = buffer.char();
@@ -3550,74 +3552,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._parseError("expected-white-space-got", {data: data});
             buffer.start--;
         }
-        tokenizer.setState(before_bedrock_expression_second_state);
-        return true;
-    }
-
-    function before_bedrock_expression_second_state(buffer) {
-        var data = buffer.char();
-        if (isWhitespace(data))
-            return true;
-        /* Update the stack */
-        pushState('bedrock_expression_second');
-        if (data === InputStream.EOF) {
-            tokenizer._parseError("expected-expression-value-got-eof");
-            buffer.unget(data);
-            tokenizer.setState(data_state);
-        /* Strings */
-        } else if (data === '"') {
-            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
-            tokenizer.setState(bedrock_double_quoted_state);
-        } else if (data === "'") {
-            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
-            tokenizer.setState(bedrock_single_quoted_state);
-        /* Q String / Values */
-        } else if (data === 'q') {
-            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
-            tokenizer.setState(bedrock_q_state);
-        /* objects */
-        } else if (data === '$') {
-            tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
-            tokenizer.setState(bedrock_object_state);
-        } else if (data === '(') {
-            tokenizer.setState(before_bedrock_expression_first_state);
-        } else if (data === ')') {
-            tokenizer._parseError("invalid-expression-missing-rhs");
-            setStateByStack();
-        } else if (data === '>') {
-            tokenizer._parseError("expression-not-terminated");
-            tokenizer._emitCurrentToken();
-        } else if (isDecimalDigit(data) || data === '-') {
-            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
-            tokenizer.setState(number_state);
-        } else if (data === '\u0000') {
-            tokenizer._parseError("invalid-codepoint");
-            tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
-        } else {
-            tokenizer._parseError('syntax-error-bareword-in-expression');
-            tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
-            tokenizer.setState(bedrock_bareword_state);
-        }
-        return true;
-    }
-
-    function close_bedrock_expression_state(buffer) {
-        if (tokenizer._currentAttribute().nodeValue === ")") {
-            setStateByStack();
-            return true;
-        }
-        var data = buffer.char();
-        if (data === InputStream.EOF) {
-            tokenizer._parseError("expected-white-space-got-eof");
-            buffer.unget(data);
-            tokenizer.setState(data_state);
-        } else if (isWhitespace(data)) {
-            return true;
-        } else if (data != ")") {
-            tokenizer._parseError("missing-end-bracket");
-            buffer.start--;
-        }
-        setStateByStack();
+        tokenizer.setState(before_bedrock_expression_first_state);
         return true;
     }
 
@@ -3652,14 +3587,10 @@ Tokenizer.prototype.tokenize = function(source) {
                 tokenizer.setState(before_bedrock_content_state);
                 return;
             case 'bedrock_expression_first' :
-                if (tokenizer._currentAttribute()
-                 && isWhitespace(tokenizer._currentAttribute().nodeValue))
-                    tokenizer.setState(bedrock_operator_state);
-                else
-                    tokenizer.setState(before_bedrock_operator_state);
+                tokenizer.setState(before_bedrock_operator_state);
                 return;
             case 'bedrock_expression_second' :
-                tokenizer.setState(close_bedrock_expression_state);
+                tokenizer.setState(after_bedrock_expression_second_state);
                 return;
             case 'bedrock_method_parameter' :
                 tokenizer.setState(after_bedrock_method_parameter_state);
