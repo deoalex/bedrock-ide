@@ -1531,17 +1531,13 @@ var bTagMap = lang.createMap({
     while       : 'loop'
 });
 
-function bedrock_tag_start(start, tag, varName, end) {
+function bedrock_tag_start(start, tag, varName) {
     var group = bTagMap[tag];
     var classes = [];
     classes.push("bedrock.tag.punctuation." + (start == "<" ? "" : "end-") + "tag-open.xml");
     classes.push("bedrock.tag" + (group ? "." + group : "") + ".tag-name.xml");
     if (varName != null)
         classes.push("bedrock_variable_def");
-    if (end === '>')
-        classes.push("bedrock.tag.punctuation." + (start == "<" ? "" : "end-") + "tag-open.xml");
-    else 
-        classes.push("text.tag-whitespace");
     return classes;
 }
 
@@ -1555,59 +1551,34 @@ var bedrockHighlightRules = function() {
     var meta;
 
     this.addRules({
-        attributes: [{
-            include : "tag_whitespace"
-        }, {
-            token : "entity.other.attribute-name.xml",
-            regex : "[-_a-zA-Z0-9:.]+"
-        }, {
-            token : "keyword.operator.attribute-equals.xml",
-            regex : "=",
-            push : [{
-                include: "tag_whitespace"
+        attributes: [
+            {
+                include : "tag_whitespace"
             }, {
-                token : "string.unquoted.attribute-value.html",
-                regex : "[^<>='\"`\\s]+",
-                next : "pop"
+                include: "bedrock_tag"
+            } , {
+                token : "entity.other.attribute-name.xml",
+                regex : "[-_a-zA-Z0-9:.]+"
             }, {
-                token : "empty",
-                regex : "",
-                next : "pop"
-            }]
-        }, {
-            include : "attribute_value"
-        }],
+                token : "keyword.operator.attribute-equals.xml",
+                regex : "=",
+                push : [{
+                    include: "tag_whitespace"
+                }, {
+                    token : "string.unquoted.attribute-value.html",
+                    regex : "[^<>='\"`\\s]+",
+                    next : "pop"
+                }, {
+                    token : "empty",
+                    regex : "",
+                    next : "pop"
+                }]
+            }, {
+                include : "attribute_value"
+            }
+        ],
         tag: [
-            /* Bedrock tag rules */
-            {
-                token : function(start, tag, varName, end) {
-                    return bedrock_tag_start(start, tag, null, end);
-                },
-                regex : "(</?)("+bTagRegex+")(\\s)",
-                next: "bedrock_tag_contents"
-            },
-            {
-                token : function(start, tag, varName, end) {
-                    return bedrock_tag_start(start, tag, null, end);
-                },
-                regex : "(</?)("+bTagRegex+")(>)",
-                next: "start"
-            },
-            {
-                token : function(start, tag, varName, end) {
-                    return bedrock_tag_start(start, tag, varName, end);
-                },
-                regex : "(</?)("+bTagRegex+")(:[a-zA-Z_$\x7f-\uffff][a-zA-Z0-9_\x7f-\uffff]*)(\\s)",
-                next: "bedrock_tag_contents"
-            },
-            {
-                token : function(start, tag, varName, end) {
-                    return bedrock_tag_start(start, tag, varName, end);
-                },
-                regex : "(</?)("+bTagRegex+")(:[a-zA-Z_$\x7f-\uffff][a-zA-Z0-9_\x7f-\uffff]*)(>)",
-                next: "start"
-            },
-            /* HTML Tag rules */
+            {   include: "bedrock_tag"},
             {
                 token : function(start, tag) {
                     var group = tagMap[tag];
@@ -1617,6 +1588,22 @@ var bedrockHighlightRules = function() {
                 regex : "(</?)([-_a-zA-Z0-9:.]+)",
                 next: "html_tag_contents"
             }
+        ],
+        bedrock_tag : [
+            {
+                token : function(start, tag) {
+                    return bedrock_tag_start(start, tag);
+                },
+                regex : "(</?)("+bTagRegex+")",
+                push: "bedrock_tag_contents"
+            },
+            {
+                token : function(start, tag, varName) {
+                    return bedrock_tag_start(start, tag, varName);
+                },
+                regex : "(</?)("+bTagRegex+")(:[a-zA-Z_$\x7f-\uffff][a-zA-Z0-9_\x7f-\uffff]*)",
+                push: "bedrock_tag_contents"
+            },
         ],
         html_tag_contents: [
             {include : "attributes"},
@@ -1629,7 +1616,7 @@ var bedrockHighlightRules = function() {
             {include : "bedrock_variable"},
             {include : "bedrock_func_attr"}, /* functions and attributes */
             {include : "bedrock_op"}, /* operators and options */
-            {token : "bedrock.tag.punctuation.tag-close.xml", regex : "/?>", next : "start"}
+            {token : "bedrock.tag.punctuation.tag-close.xml", regex : "/?>", next : "pop"}
         ],
         bedrock_comment : [{
             token : "comment.xml", regex : "-->",
@@ -1644,7 +1631,7 @@ var bedrockHighlightRules = function() {
                     token : "bedrock_string",
                     regex : '"',
                     defaultToken : "bedrock_string",
-                    next : "bedrock_tag_contents"
+                    next : "pop"
                 }]
             }, {
                 token : "bedrock_string", // ' string start
@@ -1653,7 +1640,7 @@ var bedrockHighlightRules = function() {
                     token : "bedrock_string",
                     regex : "'",
                     defaultToken : "bedrock_string",
-                    next : "bedrock_tag_contents"
+                    next : "pop"
                 }]
             }, {
                 token : "bedrock_string", // ' string start
@@ -1662,7 +1649,7 @@ var bedrockHighlightRules = function() {
                     token : "bedrock_string",
                     regex: "}",
                     defaultToken : "bedrock_string",
-                    next : "bedrock_tag_contents"
+                    next : "pop"
                 }]
             }, {
                 token : "bedrock_string", // ' string start
@@ -1671,7 +1658,7 @@ var bedrockHighlightRules = function() {
                     token : "bedrock_string",
                     regex: "[)]",
                     defaultToken : "bedrock_string",
-                    next : "bedrock_tag_contents"
+                    next : "pop"
                 }]
             }, {
                 token : "bedrock_string", // ' string start
@@ -1680,7 +1667,7 @@ var bedrockHighlightRules = function() {
                     token : "bedrock_string",
                     regex: "]",
                     defaultToken : "bedrock_string",
-                    next : "bedrock_tag_contents"
+                    next : "pop"
                 }]
             }, {
                 token : "bedrock_string", // ' string start
@@ -1689,7 +1676,7 @@ var bedrockHighlightRules = function() {
                     token : "bedrock_string",
                     regex: ":",
                     defaultToken : "bedrock_string",
-                    next : "bedrock_tag_contents"
+                    next : "pop"
                 }]
             }
         ],

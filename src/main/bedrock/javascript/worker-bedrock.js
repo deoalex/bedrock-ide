@@ -2105,7 +2105,7 @@ function isBedrockTag(name) {
     return name.match("^(array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
                 "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
                 "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
-                "|sqltable|trace|try|unless|var|while)$");
+                "|sqltable|trace|try|unless|var|while)");
 }
 
 function isWhitespace(c){
@@ -7105,7 +7105,7 @@ TreeBuilder.prototype.isBedrockTag = function(name) {
     return name.match("^(array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
                 "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
                 "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
-                "|sqltable|trace|try|unless|var|while)$");
+                "|sqltable|trace|try|unless|var|while)");
 }
 
 TreeBuilder.prototype.processToken = function(token) {
