@@ -3327,6 +3327,9 @@ Tokenizer.prototype.tokenize = function(source) {
     /* Decide if this is a q{} string or a bareword */
     function bedrock_q_state(buffer) {
         var data = buffer.char();
+        /* Handle q vs qq */
+        if (data === 'q')
+            data = buffer.char();
         if (data === InputStream.EOF) {
             tokenizer._parseError("eof-in-bareword");
             buffer.unget(data);
