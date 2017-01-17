@@ -3057,6 +3057,9 @@ Tokenizer.prototype.tokenize = function(source) {
             setStateByStack();
         } else if (data === '.') {
             tokenizer.setState(before_bedrock_object_attribute_state);
+        } else if (data === ',') {
+            buffer.start--;
+            setStateByStack();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentAttribute().name += "\uFFFD";
@@ -3189,6 +3192,9 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data === '>') {
             shouldEmit = true;
         } else if (isWhitespace(data)) {
+            setStateByStack();
+        } else if (data === ',') {
+            buffer.start--;
             setStateByStack();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
