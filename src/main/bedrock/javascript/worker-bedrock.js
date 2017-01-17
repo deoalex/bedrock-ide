@@ -3421,7 +3421,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._parseError("invalid-expression", {data: "()"});
             setStateByStack();
             return true;
-        } else if (data === '-') {
+        } else if (data === '-' && buffer.peek(1) === '-') {
             tokenizer.setState(before_bedrock_operator_name_state);
             return true;
         }
