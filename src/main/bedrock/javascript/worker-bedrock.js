@@ -2107,7 +2107,17 @@ function isBedrockTag(name) {
                 "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
                 "|sqltable|trace|try|unless|var|while)");
 }
-
+function look_ahead_tag_name(buffer) {
+    var index;
+    for(index = 1; index < buffer.length(); index++) {
+        var name = buffer.peek(index);
+        if (name.match(/[^a-zA-Z]/)) {
+            index--;
+            break;
+        }
+    }
+    return buffer.peek(index);
+}
 function isWhitespace(c){
 	return c === " " || c === "\n" || c === "\t" || c === "\r" || c === "\f";
 }
@@ -2124,6 +2134,7 @@ function Tokenizer(tokenHandler) {
 	this._tokenHandler = tokenHandler;
 	this._state = Tokenizer.DATA;
 	this._inputStream = new InputStream();
+    this._parentToken = null; // Used for keeping track of embed html elements with bedrock in them
 	this._currentToken = null;
 	this._temporaryBuffer = '';
 	this._additionalAllowedCharacter = '';
@@ -2155,9 +2166,15 @@ Tokenizer.prototype._emitToken = function(token) {
 	}
 };
 
-Tokenizer.prototype._emitCurrentToken = function() {
-	this._state = Tokenizer.DATA;
-	this._emitToken(this._currentToken);
+Tokenizer.prototype._emitCurrentToken = function(save_state) {
+    var token = this._currentToken;
+    if (!save_state)
+        this._state = Tokenizer.DATA;
+    else {
+        this._currentToken = this._parentToken;
+        this._parentToken = null;
+    }
+    this._emitToken(token);
     this._stack = [];
 };
 
@@ -2835,7 +2852,7 @@ Tokenizer.prototype.tokenize = function(source) {
 
         if (leavingThisState) {
             if (shouldEmit)
-                tokenizer._emitCurrentToken();
+                emitBedrockToken();
         } else {
             buffer.commit();
         }
@@ -2845,7 +2862,7 @@ Tokenizer.prototype.tokenize = function(source) {
     function before_bedrock_content_state(buffer) {
         var data = buffer.char();
         /* Stack should always be empty coming here */
-        if (tokenizer._stack.length == 0)
+        if (tokenizer._stack.length == 0 || tokenizer._stack[tokenizer._stack.length - 1] != 'bedrock_content')
             pushState('bedrock_content');
         if (data === InputStream.EOF) {
             tokenizer._parseError("expected-bedrock-tag-contents-got-eof");
@@ -2875,7 +2892,7 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data === '(') {
             tokenizer.setState(before_bedrock_expression_state);
         } else if (data === '>') {
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -2898,7 +2915,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(before_bedrock_option_name_state);
         } else if (data === '>') {
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -2925,7 +2942,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer._currentToken.data.push({nodeName: data.toLowerCase(), nodeValue: ""});
             tokenizer.setState(bedrock_option_name_state);
         } else if (data === '>') {
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -2969,7 +2986,7 @@ Tokenizer.prototype.tokenize = function(source) {
 
         if (leavingThisState) {
             if (shouldEmit)
-                tokenizer._emitCurrentToken();
+                emitBedrockToken();
         } else {
             buffer.commit();
         }
@@ -3000,7 +3017,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(before_bedrock_expression_state);
         } else if (data === '>') {
             tokenizer._parseError("missing-option-value");
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -3047,7 +3064,7 @@ Tokenizer.prototype.tokenize = function(source) {
 
         if (leavingThisState) {
             if (shouldEmit)
-                tokenizer._emitCurrentToken();
+                emitBedrockToken();
         } else {
             buffer.commit();
         }
@@ -3071,7 +3088,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(before_bedrock_array_index_state);
         } else if (data === '>') {
             tokenizer._parseError("syntax-error");
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -3106,7 +3123,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(number_state);
         } else if (data === '>') {
             tokenizer._parseError("array-index-not-terminated");
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -3135,7 +3152,7 @@ Tokenizer.prototype.tokenize = function(source) {
             setStateByStack();
         } else if (data === '>') {
             tokenizer._parseError("array-index-not-terminated");
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -3180,7 +3197,7 @@ Tokenizer.prototype.tokenize = function(source) {
 
         if (leavingThisState) {
             if (shouldEmit)
-                tokenizer._emitCurrentToken();
+                emitBedrockToken();
         } else {
             buffer.commit();
         }
@@ -3220,7 +3237,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(before_bedrock_expression_state);
         } else if (data === '>') {
             tokenizer._parseError("missing-end-bracket");
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -3251,7 +3268,7 @@ Tokenizer.prototype.tokenize = function(source) {
             setStateByStack();
         } else if (data === '>') {
             tokenizer._parseError("missing-end-bracket");
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -3388,7 +3405,7 @@ Tokenizer.prototype.tokenize = function(source) {
             var o = buffer.matchUntil("\u0000|["+ "\t\n\v\f\x20\r" + "<>\"'%*=`,)" +"]|]|-");
             if (o === InputStream.EOF) {
                 tokenizer._parseError("eof-in-attribute-value-no-quotes");
-                tokenizer._emitCurrentToken();
+                emitBedrockToken();
             }
             buffer.commit();
             tokenizer._currentAttribute().nodeValue += data + o;
@@ -3433,7 +3450,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(before_bedrock_expression_state);
         } else if (data === '>') {
             tokenizer._parseError("expression-not-terminated");
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (isDecimalDigit(data) || data === '-') {
             tokenizer._currentToken.data.push({nodeValue: data.toLowerCase(), nodeName: ""});
             tokenizer.setState(number_state);
@@ -3485,7 +3502,7 @@ Tokenizer.prototype.tokenize = function(source) {
             setStateByStack();
         } else if (data === '>') {
             tokenizer._parseError("expression-not-terminated");
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -3510,7 +3527,7 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(bedrock_operator_name_state);
         } else if (data === '>') {
             tokenizer._parseError("expression-not-terminated");
-            tokenizer._emitCurrentToken();
+            emitBedrockToken();
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
@@ -3554,7 +3571,7 @@ Tokenizer.prototype.tokenize = function(source) {
 
         if (leavingThisState) {
             if (shouldEmit)
-                tokenizer._emitCurrentToken();
+                emitBedrockToken();
         } else {
             buffer.commit();
         }
@@ -3600,6 +3617,16 @@ Tokenizer.prototype.tokenize = function(source) {
         return true;
     }
 
+    function emitBedrockToken() {
+        if (tokenizer._stack[0] && tokenizer._stack[0].match(/^(embeded_bedrock_attribute|embeded_bedrock_value)$/)) {
+            tokenizer._stack = tokenizer._stack.slice(0,1);
+            setStateByStack();
+            tokenizer._emitCurrentToken(1);
+        }
+        else
+            tokenizer._emitCurrentToken();
+    }
+
     function pushState(state) {
         tokenizer._stack.push(state);
     }
@@ -3617,6 +3644,13 @@ Tokenizer.prototype.tokenize = function(source) {
                 return;
             case 'before_array_index' :
                 tokenizer.setState(after_bedrock_array_index_state);
+                return;
+            case 'embeded_bedrock_attribute' :
+                tokenizer.setState(after_attribute_name_state);
+                return;
+            case 'embeded_bedrock_value' :
+                tokenizer.setState(after_attribute_value_state);
+                return;
         }
     }
 
@@ -3636,7 +3670,20 @@ Tokenizer.prototype.tokenize = function(source) {
 			tokenizer._emitCurrentToken();
 		} else if (data === '/') {
 			tokenizer.setState(self_closing_tag_state);
-		} else if (data === "'" || data === '"' || data === '=' || data === '<') {
+		} else if (data === '<') {
+            var name = look_ahead_tag_name(buffer);
+            if (isBedrockTag(name)) {
+                tokenizer._currentToken.data.push({nodeName: 'embeded-bedrock', nodeValue: ""});
+                tokenizer._parentToken = tokenizer._currentToken;
+                pushState('embeded_bedrock_attribute');
+                tokenizer.setState(tag_open_state);
+            }
+            else {
+                tokenizer._parseError("invalid-character-in-attribute-name");
+                tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
+                tokenizer.setState(attribute_name_state);
+            }
+        } else if (data === "'" || data === '"' || data === '=') {
 			tokenizer._parseError("invalid-character-in-attribute-name");
 			tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
 			tokenizer.setState(attribute_name_state);
@@ -3749,7 +3796,19 @@ Tokenizer.prototype.tokenize = function(source) {
 		} else if (data === '>') {
 			tokenizer._parseError("expected-attribute-value-but-got-right-bracket");
 			tokenizer._emitCurrentToken();
-		} else if (data === '=' || data === '<' || data === '`') {
+		} else if (data === '<') {
+            var name = look_ahead_tag_name(buffer);
+            if (isBedrockTag(name)) {
+                tokenizer._parentToken = tokenizer._currentToken;
+                pushState('embeded_bedrock_value');
+                tokenizer.setState(tag_open_state);
+            }
+            else {
+                tokenizer._parseError("invalid-character-in-attribute-name");
+                tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
+                tokenizer.setState(attribute_name_state);
+            }
+        } else if (data === '=' || data === '`') {
 			tokenizer._parseError("unexpected-character-in-unquoted-attribute-value");
 			tokenizer._currentAttribute().nodeValue += data;
 			tokenizer.setState(attribute_value_unquoted_state);
