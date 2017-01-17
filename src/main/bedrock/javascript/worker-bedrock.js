@@ -2102,7 +2102,7 @@ var InputStream = _dereq_('./InputStream').InputStream;
 var EntityParser = _dereq_('./EntityParser').EntityParser;
 
 function isBedrockTag(name) {
-    return name.match("^(array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
+    return name.match("^/?(array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
                 "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
                 "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
                 "|sqltable|trace|try|unless|var|while)");
@@ -2111,7 +2111,7 @@ function look_ahead_tag_name(buffer) {
     var index;
     for(index = 1; index < buffer.length(); index++) {
         var name = buffer.peek(index);
-        if (name.match(/[^a-zA-Z]/)) {
+        if (name.match(/[^a-zA-Z/]/)) {
             index--;
             break;
         }
@@ -2168,11 +2168,12 @@ Tokenizer.prototype._emitToken = function(token) {
 
 Tokenizer.prototype._emitCurrentToken = function(save_state) {
     var token = this._currentToken;
-    if (!save_state)
-        this._state = Tokenizer.DATA;
-    else {
+    if (save_state) {
         this._currentToken = this._parentToken;
         this._parentToken = null;
+    }
+    else {
+        this._state = Tokenizer.DATA;
     }
     this._emitToken(token);
     this._stack = [];
@@ -2805,10 +2806,13 @@ Tokenizer.prototype.tokenize = function(source) {
 		} else if (isAlpha(data)) {
 			tokenizer._currentToken.name += data.toLowerCase();
 		} else if (data === '>') {
-            if (isBedrockTag(tokenizer._currentToken.name))
+            if (isBedrockTag(tokenizer._currentToken.name)) {
                 tokenizer._currentToken.type = (tokenizer._currentToken.type.match(/Start/))
                     ? "BedrockStartTag" : "BedrockEndTag";
-			tokenizer._emitCurrentToken();
+                emitBedrockToken();
+            }
+            else
+	            tokenizer._emitCurrentToken();
 		} else if (data === '/') {
 			tokenizer.setState(self_closing_tag_state);
 		} else if (data === '\u0000') {
@@ -3621,7 +3625,7 @@ Tokenizer.prototype.tokenize = function(source) {
     }
 
     function emitBedrockToken() {
-        if (tokenizer._stack[0] && tokenizer._stack[0].match(/^(embeded_bedrock_attribute|embeded_bedrock_value)$/)) {
+        if (tokenizer._stack[0] && tokenizer._stack[0] === 'embeded_bedrock') {
             tokenizer._stack = tokenizer._stack.slice(0,1);
             setStateByStack();
             tokenizer._emitCurrentToken(1);
@@ -3648,16 +3652,19 @@ Tokenizer.prototype.tokenize = function(source) {
             case 'before_array_index' :
                 tokenizer.setState(after_bedrock_array_index_state);
                 return;
-            case 'embeded_bedrock_attribute' :
+            case 'embeded_bedrock' :
                 tokenizer.setState(after_attribute_name_state);
-                return;
-            case 'embeded_bedrock_value' :
-                tokenizer.setState(after_attribute_value_state);
                 return;
         }
     }
 
 //////////////////////////Bedrock end/////////////////////////////////////////
+    function embeded_bedrock() {
+        tokenizer._parentToken = tokenizer._currentToken;
+        pushState('embeded_bedrock');
+        tokenizer.setState(tag_open_state);
+    }
+
 	function before_attribute_name_state(buffer) {
 		var data = buffer.char();
 		if (data === InputStream.EOF) {
@@ -3677,9 +3684,7 @@ Tokenizer.prototype.tokenize = function(source) {
             var name = look_ahead_tag_name(buffer);
             if (isBedrockTag(name)) {
                 tokenizer._currentToken.data.push({nodeName: 'embeded-bedrock', nodeValue: ""});
-                tokenizer._parentToken = tokenizer._currentToken;
-                pushState('embeded_bedrock_attribute');
-                tokenizer.setState(tag_open_state);
+                embeded_bedrock();
             }
             else {
                 tokenizer._parseError("invalid-character-in-attribute-name");
@@ -3762,12 +3767,22 @@ Tokenizer.prototype.tokenize = function(source) {
 			tokenizer.setState(before_attribute_value_state);
 		} else if (data === '>') {
 			tokenizer._emitCurrentToken();
-		} else if (isAlpha(data)) {
+		} else if (data === '<') {
+            var name = look_ahead_tag_name(buffer);
+            if (isBedrockTag()) {
+                embeded_bedrock();
+            }
+            else {
+                tokenizer._parseError("invalid-character-after-attribute-name");
+                tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
+                tokenizer.setState(attribute_name_state);
+            }
+        } else if (isAlpha(data)) {
 			tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
 			tokenizer.setState(attribute_name_state);
 		} else if (data === '/') {
 			tokenizer.setState(self_closing_tag_state);
-		} else if (data === "'" || data === '"' || data === '<') {
+		} else if (data === "'" || data === '"') {
 			tokenizer._parseError("invalid-character-after-attribute-name");
 			tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
 			tokenizer.setState(attribute_name_state);
@@ -3802,9 +3817,7 @@ Tokenizer.prototype.tokenize = function(source) {
 		} else if (data === '<') {
             var name = look_ahead_tag_name(buffer);
             if (isBedrockTag(name)) {
-                tokenizer._parentToken = tokenizer._currentToken;
-                pushState('embeded_bedrock_value');
-                tokenizer.setState(tag_open_state);
+                embeded_bedrock();
             }
             else {
                 tokenizer._parseError("invalid-character-in-attribute-name");
@@ -3931,7 +3944,17 @@ Tokenizer.prototype.tokenize = function(source) {
 		} else if (data === '>') {
 			tokenizer.setState(data_state);
 			tokenizer._emitCurrentToken();
-		} else if (data === '/') {
+		} else if (data === '<') {
+            var name = look_ahead_tag_name(buffer);
+            if (isBedrockTag(name)) {
+                embeded_bedrock();
+            }
+            else {
+                tokenizer._parseError("unexpected-character-after-attribute-value");
+                buffer.unget(data);
+                tokenizer.setState(before_attribute_name_state);    
+            }
+        } else if (data === '/') {
 			tokenizer.setState(self_closing_tag_state);
 		} else {
 			tokenizer._parseError("unexpected-character-after-attribute-value");
@@ -7164,7 +7187,7 @@ TreeBuilder.prototype.startTokenization = function(tokenizer) {
 };
 
 TreeBuilder.prototype.isBedrockTag = function(name) {
-    return name.match("^(array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
+    return name.match("^/?(array|case|catch|elsif|elseif|else|exec|flush|foreach|hash|if|iif|include"+
                 "|noexec|null|open|pebble|pebbledef|plugin|raise|recordset"+
                 "|sink|snippet|sql|sqlcommit|sqlconnect|sqlrollback|sqlselect"+
                 "|sqltable|trace|try|unless|var|while)");
