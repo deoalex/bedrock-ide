@@ -2910,7 +2910,7 @@ Tokenizer.prototype.tokenize = function(source) {
     function before_bedrock_option_state(buffer) {
         var data = buffer.char();
         if (data === InputStream.EOF) {
-            tokenizer._parseError("expected-bedrock-tag-contents-got-eof");
+            tokenizer._parseError("eof-in-option-name");
             buffer.unget(data);
             tokenizer.setState(data_state);
         } else if (isWhitespace(data)) {
@@ -2950,7 +2950,7 @@ Tokenizer.prototype.tokenize = function(source) {
         } else if (data === '\u0000') {
             tokenizer._parseError("invalid-codepoint");
             tokenizer._currentToken.data.push({nodeName: "\uFFFD", nodeValue: ""});
-        } else if (data.matches(/[()]/)) {
+        } else if (data.match(/[()]/)) {
             tokenizer._parseError("invalid-character-in-option-name", {data: data});
             tokenizer._currentToken.data.push({nodeName: data, nodeValue: ""});
             tokenizer.setState(bedrock_content_state);
@@ -3393,7 +3393,7 @@ Tokenizer.prototype.tokenize = function(source) {
     function bedrock_bareword_state(buffer) {
         var data = buffer.char();
         if (data === InputStream.EOF) {
-            tokenizer._parseError("eof-after-attribute-value");
+            tokenizer._parseError("eof-in-bareword");
             buffer.unget(data);
             tokenizer.setState(data_state);
         } else if (isWhitespace(data)) {
@@ -3417,7 +3417,7 @@ Tokenizer.prototype.tokenize = function(source) {
         } else {
             var o = buffer.matchUntil("\u0000|["+ "\t\n\v\f\x20\r" + "<>\"'%*=`,)" +"]|]|-");
             if (o === InputStream.EOF) {
-                tokenizer._parseError("eof-in-attribute-value-no-quotes");
+                tokenizer._parseError("eof-in-bareword");
                 emitBedrockToken();
             }
             buffer.commit();
@@ -7849,8 +7849,24 @@ module.exports={
 		"Unexpected ! after -- in comment.",
 	"incorrect-comment":
 		"Incorrect comment.",
+    "eof-in-object-name":
+        "Unexpected end of file in object name",
+    "eof-in-object-attribute-name":
+        "Unexpected end of file in object attribute name",
     "eof-in-bareword":
         "Unexpected end of file in bareword",
+    "expected-object-attribute-name-got-eof":
+        "Expected attribute name but found end of file instead",
+    "expected-index-value-got-eof":
+        "Expected index value but found end of file instead",
+    "expected-method-parameter-got-eof":
+        "Expected method parameter but found end of file instead",
+    "expected-expression-value-got-eof":
+        "Expected an expression value but found end of file instead",
+    "expected-white-space-got-eof":
+        "Expected whitespace but found end of file instead",
+    "expected-option-name-got-eof":
+        "Expected option name but found end of file instead",
 	"eof-in-comment":
 		"Unexpected end of file in comment.",
 	"eof-in-comment-end-dash":
