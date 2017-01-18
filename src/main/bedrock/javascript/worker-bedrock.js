@@ -3748,7 +3748,9 @@ Tokenizer.prototype.tokenize = function(source) {
 			var currentAttribute = attributes[attributes.length - 1];
 			for (var i = attributes.length - 2; i >= 0; i--) {
 				if (currentAttribute.nodeName === attributes[i].nodeName) {
-					tokenizer._parseError("duplicate-attribute", {name: currentAttribute.nodeName});
+                    /* Only show duplicate error if we are not inside of an if/unless */
+                    if (tokenizer._tokenHandler.conditionalStack.length < 1)
+					   tokenizer._parseError("duplicate-attribute", {name: currentAttribute.nodeName});
 					currentAttribute.nodeName = null;
 					break;
 				}
@@ -3775,7 +3777,7 @@ Tokenizer.prototype.tokenize = function(source) {
 			tokenizer._emitCurrentToken();
 		} else if (data === '<') {
             var name = look_ahead_tag_name(buffer);
-            if (isBedrockTag()) {
+            if (isBedrockTag(name)) {
                 embeded_bedrock();
             }
             else {
@@ -4808,7 +4810,6 @@ function TreeBuilder() {
 	modes.initial = Object.create(modes.base);
 
 	modes.initial.processEOF = function() {
-		tree.parseError("expected-doctype-but-got-eof");
 		this.anythingElse();
 		tree.insertionMode.processEOF();
 	};
@@ -7806,6 +7807,8 @@ module.exports={
         "Invalid character '{data}' in bareword.",
 	"invalid-character-in-attribute-name":
 		"Invalid character in attribute name.",
+    "invalid-character-in-option-name":
+        "Invalid character '{data}' found in option name",
     "invalid-array-index":
         "Invalid value '{data}' in array index",
     "invalid-character-in-operator-name":
@@ -7884,8 +7887,6 @@ module.exports={
 		"Unexpected DOCTYPE. Ignored.",
 	"non-html-root":
 		"html needs to be the first start tag.",
-	"expected-doctype-but-got-eof":
-		"Unexpected End of file. Expected DOCTYPE.",
 	"unknown-doctype":
 		"Erroneous DOCTYPE. Expected <!DOCTYPE html>.",
 	"quirky-doctype":
