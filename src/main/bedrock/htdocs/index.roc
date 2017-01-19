@@ -49,6 +49,10 @@
         <a class="popup icon item bedrock-settings" data-content="settings">
           <i class="settings large icon"></i>
         </a>
+        <a class="popup icon item run-build" data-content="build">
+          <i class="legal large icon"></i>
+        </a>
+
         <div class="introduction">
           <h1 class="ui header">
             Bedrock IDE           
@@ -115,6 +119,10 @@
       <div class="ui basic segment main-file-content">
         <div id="cursorDetails" class="ui basic segment"></div>
         <div id="fileLength" class="ui basic right floated"></div>
+      </div>
+
+      <div class="ui basic segment">
+        <pre class="build-stream"></pre>
       </div>
 
     </div><!-- .main .ui .container -->

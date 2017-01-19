@@ -531,7 +531,8 @@ sub build {
       $SIG{CHLD} = 'IGNORE';
     };
 
-    print "data: EOF\n\n";
+    print "event: close\n";
+    print "data: build complete\n\n";
     
     if ( $err_code || $@ ) {
       die $@ || { error => $err };
