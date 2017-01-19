@@ -1,5 +1,5 @@
 /* Syntax Highlighting Colors */
-.ace_bedrock_tag {
+.ace_bedrock.ace_tag {
     color: #6435c9;
 }
 .ace_bedrock_variable {
@@ -8,7 +8,7 @@
 .ace_bedrock_string {
     color: #49aed0;
 }
-.ace_bedrock_operator, .ace_bedrock_option {
+.ace_bedrock.ace_operator, .ace_bedrock_option {
     color: #A0522D;
 }
 .ace_bedrock_function {

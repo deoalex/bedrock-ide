@@ -149,6 +149,43 @@ $(document).ready(function() {
     });
   }
 
+  function build_project() {
+    var uri = "/bedrock-ide/api/build";
+    var source = new EventSource(uri);
+    source.onmessage = function(e) {
+      append_build_stream(e.data);
+    };
+    source.onerror = function(e) {
+      append_build_stream(e.data);
+      toggle_stream(true);
+      this.close();
+    };
+    source.addEventListener('close', function(e) {
+      append_build_stream(e.data);
+      toggle_stream(true);
+      this.close();
+    });
+  }
+
+  function append_build_stream(line) {
+    var stream = $('.build-stream');
+    stream.append(line+"\n");
+    stream.scrollTop(stream[0].scrollHeight - stream[0].clientHeight);
+  }
+
+  function toggle_stream(on) {
+      var button = $('.run-build');
+      if (on)
+          button.css('pointer-events', 'auto');
+          /*button.removeClass('disabled loading');*/
+      else {
+          button.css('pointer-events', 'none');
+          /*button.addClass('disabled loading');*/
+          $('.build-stream').empty();
+          $('.build-stream').css("display", "flex");
+      }
+  }
+
   function save_file_content(file_content, file_name, file_type) {  
     var uri;
     if (file_type == "script") {
@@ -807,6 +844,11 @@ $(document).ready(function() {
     $("#" + current_editor).removeData("is-updated").removeAttr("data-is-updated");
     var editor = ace.edit(current_editor);
     save_file_content(editor.getValue(), file_name, file_type);
+  });
+
+  $(document).on("click", ".run-build", function() {
+    toggle_stream(false);
+    build_project();
   });
 
   $(document).on("click", ".run-file", function() {
