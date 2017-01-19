@@ -32,7 +32,7 @@ $(document).ready(function() {
       $(".modal-status-info").fadeOut(1000, function() {
         $(this).removeClass("success error").empty();
       });
-    }, 100000);
+    }, 5000);
   }
 
   function add_new_tab(data, file_name, file_type) {
@@ -64,6 +64,9 @@ $(document).ready(function() {
       onVisible: function() {
         $("#cursorDetails, #fileLength").html("");
         $(".bedrock-status-info").removeClass("success error").html("").hide();
+        var id = $(this).find(".editor").attr("id");
+        var current = ace.edit(id);
+        current.focus();
       }
     });
 
@@ -71,7 +74,7 @@ $(document).ready(function() {
     var editor = ace.edit("editor" + $("#tab_cnt").val());  
     editor.setTheme("ace/theme/chrome");
     if (file_type == "file") {
-      editor.getSession().setMode("ace/mode/bedrock");
+      editor.getSession().setMode("ace/mode/php");
     }
     else if (file_type == "plugin") {
       editor.getSession().setMode("ace/mode/perl");
@@ -100,9 +103,30 @@ $(document).ready(function() {
       }
     });
 
+    editor.commands.addCommand({
+      name: "saveCommand",
+      bindKey: {win: "Ctrl-S",  mac: "Cmd-S"},
+      exec: function(editor) {
+        $(".save-file").trigger("click");
+      },
+      readOnly: false
+    });
+
+    editor.commands.addCommand({
+      name: "closeCommand",
+      bindKey: {win: "Ctrl-X",  mac: "Cmd-X"},
+      exec: function(editor) {
+        $(".file_list_tab a.item.active i.close-tab").trigger("click");
+      }
+    });
+
+    update_recently_viewed(file_name, file_type);
+
     editor.setValue(data);
     $("body").animate({ scrollTop: "0px" }, 500);
     editor.gotoLine(1);
+    editor.getSession().setUseWrapMode(true);
+    editor.focus();
   }
 
   function get_file_content(file_name, file_type) {
@@ -292,6 +316,57 @@ $(document).ready(function() {
         bedrock_status_message_set("error", error);
       }
     });
+  }
+
+  function update_recently_viewed(file_name, file_type) {
+    var item; 
+    var list;
+
+    if ($(".recent-div").find("div.recently-viewed-list").size() == "0") {
+      var item = $(".recent-div");
+      list = $("<div>").addClass("ui list recently-viewed-list");
+    }
+    else {
+      list = $(".recent-div").find("div.recently-viewed-list");
+    }
+
+    var list_item = $("<div>").addClass("item");
+
+    var load_class;
+
+    if (file_type == "file") {
+      load_class = "load-file";
+    }
+    else if (file_type == "plugin") {
+      load_class = "load-plugin";
+    }
+
+    var file = $("<a>").html(file_name).addClass("item " + load_class).attr("data-file-uri", file_name);
+
+    $(file).appendTo(list_item);
+
+    $(list_item).appendTo(list);
+
+    if ($(".recent-div").find("div.recently-viewed-list").size() == "0") {
+      $(list).appendTo(item); 
+    }
+
+    var list_size = $(".recent-div").find("a.item").size();
+
+    if(list_size > 5) {
+      var del_item = list_size - 5;
+      for (var i = 1; i <= del_item; i++) {
+        $(".recent-div").find("a.item:first").parent("div.item").remove();
+      };
+    }
+
+    $(".recent-div").show();
+
+    if ($(".show-recent-files").is(":visible")) {
+      $(".recently-viewed-list").hide();
+    } else {
+      $(".recently-viewed-list").show();
+    }
   }
 
   function get_config() {
@@ -562,8 +637,7 @@ $(document).ready(function() {
   });
 
   $(".bedrock-help-modal").modal({
-    blurring: true,
-    closable: false
+    blurring: true
   });
 
   $(".main_tab_div, .file-menu").css("display", "none");
@@ -657,7 +731,6 @@ $(document).ready(function() {
         $("#cursorDetails, #fileLength").html("");
       }
     }
-
   });
 
   $(".bedrock-help-tags .header:first").click(function(e) { 
@@ -966,5 +1039,13 @@ $(document).ready(function() {
     $(".main_tab_div, .file-menu").css("display", "block");
     $(".bedrock-settings-modal").modal("hide");
   }); 
+
+  $(".hide-recent-files").toggle();  
+  $(document).on("click", ".show-recent-files, .hide-recent-files, .recent-list-header", function(e) {
+    e.stopPropagation();
+    $(".show-recent-files").toggle();
+    $(".hide-recent-files").toggle();
+    $(".recently-viewed-list").toggle();
+  });
 
 });
