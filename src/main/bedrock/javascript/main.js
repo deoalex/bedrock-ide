@@ -174,16 +174,16 @@ $(document).ready(function() {
   }
 
   function toggle_stream(on) {
-      var button = $('.run-build');
-      if (on)
-          button.css('pointer-events', 'auto');
-          /*button.removeClass('disabled loading');*/
-      else {
-          button.css('pointer-events', 'none');
-          /*button.addClass('disabled loading');*/
-          $('.build-stream').empty();
-          $('.build-stream').css("display", "flex");
-      }
+    var button = $('.run-build');
+    if (on)
+      button.css('pointer-events', 'auto');
+      /*button.removeClass('disabled loading');*/
+    else {
+      button.css('pointer-events', 'none');
+      /*button.addClass('disabled loading');*/
+      $('.build-stream').empty();
+      $('.build-stream').css("display", "flex");
+    }
   }
 
   function save_file_content(file_content, file_name, file_type) {  
@@ -404,6 +404,45 @@ $(document).ready(function() {
     } else {
       $(".recently-viewed-list").show();
     }
+  }
+
+  function initialize_config() {
+    $.ajax({
+      url: "/bedrock-ide/api/config",
+      dataType: "json",
+      success: function(data) {
+        if ( data.status == "success" ) {
+          data = data.data;
+          bedrock_ide_config = data;
+          $.each(data, function(key, val) {            
+            var div = $("<div>").addClass("field");
+            var label = $("<label>").attr("for", key).html(key);
+            var input = $("<input>").attr({
+              "id" : key,
+              "name" : key,
+              "placeholder" : key,
+              "size": "60",
+              "class": "bedrock-config-inputs"
+            }).val(val);
+            $(label).appendTo($(div));
+            $(input).appendTo($(div));
+            $(div).appendTo($("#bedrock_settings_form"));
+          });
+          
+          var edit_script_icon = $("<i>").addClass("edit large icon add_edit_script");
+          var field = $("#BUILD_SCRIPT").parent("div.field");
+          $(edit_script_icon).appendTo(field);
+
+          $(".bedrock-settings-modal").modal("refresh");
+        }
+        else {
+          bedrock_status_message_set("error", data.message);
+        }
+      },
+      error: function(xhr,status,error) {
+        bedrock_status_message_set("error", error);
+      }
+    });
   }
 
   function get_config() {
@@ -691,6 +730,9 @@ $(document).ready(function() {
   //initial plugins load
   get_plugins_doc_list();
 
+  //get config variables
+  initialize_config();
+
   $.ajaxSetup({
     cache: false
   });
@@ -847,8 +889,13 @@ $(document).ready(function() {
   });
 
   $(document).on("click", ".run-build", function() {
-    toggle_stream(false);
-    build_project();
+    if($("#SCRIPT_PATH").val() != "") {
+      toggle_stream(false);
+      build_project();
+    }
+    else {
+      alert("Please set up SCRIPT_PATH in Settings.");
+    }
   });
 
   $(document).on("click", ".run-file", function() {
