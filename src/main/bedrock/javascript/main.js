@@ -74,7 +74,31 @@ $(document).ready(function() {
     var editor = ace.edit("editor" + $("#tab_cnt").val());  
     editor.setTheme("ace/theme/chrome");
     if (file_type == "file") {
-      editor.getSession().setMode("ace/mode/php");
+      var extension = file_name.substr((file_name.lastIndexOf('.') +1));
+      if((extension == "roc") || (extension =="rock")) {
+        editor.getSession().setMode("ace/mode/bedrock");
+      }
+      else if (extension == "css") {
+        editor.getSession().setMode("ace/mode/css");
+      }
+      else if ((extension == "html") || (extension == "htm")) {
+        editor.getSession().setMode("ace/mode/html");
+      }
+      else if (extension == "js") {
+        editor.getSession().setMode("ace/mode/javascript");
+      }
+      else if (extension == "json") {
+        editor.getSession().setMode("ace/mode/json");
+      }
+      else if (extension == "txt") {
+        editor.getSession().setMode("ace/mode/text");
+      }      
+      else if (extension == "xml") {
+        editor.getSession().setMode("ace/mode/xml");
+      }
+      else {
+        editor.getSession().setMode("ace/mode/plain_text");
+      }      
     }
     else if (file_type == "plugin") {
       editor.getSession().setMode("ace/mode/perl");
