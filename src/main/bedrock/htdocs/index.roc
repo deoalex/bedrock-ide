@@ -27,15 +27,15 @@
       </a>
     </div>
     <div class="files-div">
-      <div class="header file-list-header">Files<i class="plus icon new-file"></i></div>
+      <div class="header file-list-header">Files<i class="plus icon link new-file" title="new file"></i></div>
     </div>
     <div class="plugins-div">
-      <div class="header plugin-list-header">Plugins<i class="plus icon new-plugin"></i></div>
+      <div class="header plugin-list-header">Plugins<i class="plus icon link new-plugin" title="new plugin"></i></div>
     </div>
   </div>
 
-  <div class="ui black big launch right attached fixed hide-sidebar-btn"  data-content="show/hide sidebar">
-    <i class="content large icon"></i>
+  <div class="ui black big launch right attached fixed hide-sidebar-btn">
+    <i class="content large icon link" title="show/hide sidebar"></i>
   </div>
 
   <!-- side bar -->

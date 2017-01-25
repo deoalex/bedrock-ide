@@ -45,7 +45,7 @@ $(document).ready(function() {
       $(file_list_tab).appendTo(".main_tab_div");
     }
     var tab_link = $("<a>").addClass("item active").attr("data-tab", "tab-item" + $("#tab_cnt").val()).html(file_name);
-    var close_link = $("<i>").addClass("close icon close-tab");
+    var close_link = $("<i>").addClass("close icon link close-tab");
     $(close_link).appendTo(tab_link);
     $(tab_link).appendTo(".file_list_tab");
 
@@ -284,7 +284,7 @@ $(document).ready(function() {
               var k = Object.keys(val);
 
               var list_item = $("<div>").addClass("item");
-              var header = $("<div>").addClass("header load-folder").attr("data-folder-uri", folder + k[0] + "/").html("<i class='icon folder'></i>" + k[0]);
+              var header = $("<div>").addClass("header load-folder").attr("data-folder-uri", folder + k[0] + "/").html("<i class='icon folder link'></i>" + k[0]);
 
               $(header).appendTo(list_item);
 
@@ -295,7 +295,7 @@ $(document).ready(function() {
               var list_item = $("<div>").addClass("item");
 
               var file = $("<a>").html(val).addClass("item load-file").attr("data-file-uri", folder + val);
-              var del = $("<a>").html($("<i>").addClass("trash icon delete-file"));
+              var del = $("<a>").html($("<i>").addClass("trash icon link delete-file").attr("title", "delete"));
 
               $(file).appendTo(list_item);
               $(del).appendTo(list_item);
@@ -332,9 +332,9 @@ $(document).ready(function() {
           $.each(data, function(index){
             var list_item = $("<div>").addClass("item");
 
-            var edit = $("<a>").html($("<i>").addClass("setting icon edit-plugin"));            
+            var edit = $("<a>").html($("<i>").addClass("setting icon link edit-plugin"));            
             var plugin = $("<a>").html(data[index]).addClass("item load-plugin").attr("data-file-uri", data[index]);
-            var del = $("<a>").html($("<i>").addClass("trash icon delete-plugin"));     
+            var del = $("<a>").html($("<i>").addClass("trash icon link delete-plugin"));     
 
             $(edit).appendTo(list_item);
             $(plugin).appendTo(list_item);
@@ -429,7 +429,7 @@ $(document).ready(function() {
             $(div).appendTo($("#bedrock_settings_form"));
           });
           
-          var edit_script_icon = $("<i>").addClass("edit large icon add_edit_script");
+          var edit_script_icon = $("<i>").addClass("edit large icon link add_edit_script");
           var field = $("#BUILD_SCRIPT").parent("div.field");
           $(edit_script_icon).appendTo(field);
 
@@ -470,11 +470,16 @@ $(document).ready(function() {
             $(div).appendTo($("#bedrock_settings_form"));
           });
           
-          var edit_script_icon = $("<i>").addClass("edit large icon add_edit_script");
+          var edit_script_icon = $("<i>").addClass("edit large popup icon link add_edit_script")
+                                          .attr("data-content", "edit build script");
           var field = $("#BUILD_SCRIPT").parent("div.field");
           $(edit_script_icon).appendTo(field);
 
           $(".bedrock-settings-modal").modal("refresh");
+          $(".add_edit_script").popup({
+            hoverable  : true,
+            inline     : true
+          });
         }
         else {
           modal_status_message_set("error", data.message);
@@ -654,13 +659,15 @@ $(document).ready(function() {
       type: "GET",
       success: function(data) {
         if(data.status == "success") {          
-          data = data.data;
+          data = data.data.data.data;
+          $(".bedrock-settings-modal").modal("hide");
           add_new_tab(data, bedrock_ide_config.BUILD_SCRIPT, "script"); 
         }
         else {
           var error = data.message;
           var regExp = /no BUILD_SCRIPT found at/;
           if (regExp.test(error)) {
+            $(".bedrock-settings-modal").modal("hide");
             new_build_script();
           }
           else {
@@ -889,12 +896,19 @@ $(document).ready(function() {
   });
 
   $(document).on("click", ".run-build", function() {
-    if($("#SCRIPT_PATH").val() != "") {
+    var msg="";
+    if($("#BUILD_SCRIPT").val() == "") {
+      msg += " * BUILD_SCRIPT\n\n";
+    }
+    if($("#SCRIPT_PATH").val() == "") {
+      msg += " * SCRIPT_PATH\n\n";
+    }
+    if(msg == "") {
       toggle_stream(false);
       build_project();
     }
     else {
-      alert("Please set up SCRIPT_PATH in Settings.");
+      alert("Please set up the following variables in Settings:\n\n" + msg);
     }
   });
 
@@ -1123,10 +1137,21 @@ $(document).ready(function() {
   });
 
   $(document).on("click", ".add_edit_script", function() {
-    save_config();
-    get_build_script();
-    $(".main_tab_div, .file-menu").css("display", "block");
-    $(".bedrock-settings-modal").modal("hide");
+    var msg="";
+    if($("#BUILD_SCRIPT").val() == "") {
+      msg += " * BUILD_SCRIPT\n\n";
+    }
+    if($("#SCRIPT_PATH").val() == "") {
+      msg += " * SCRIPT_PATH\n\n";
+    }
+    if(msg == "") {
+      save_config();
+      get_build_script();
+      $(".main_tab_div, .file-menu").css("display", "block");
+    }
+    else {
+      alert("Please set up the following:\n\n" + msg);
+    }
   }); 
 
   $(".hide-recent-files").toggle();  

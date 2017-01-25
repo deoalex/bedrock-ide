@@ -1,1 +1,12 @@
+2017-01-25 Senni Shanmugam <SShanmugam@signatureinfo.com>
+  * src/main/bedrock/htdocs/index.roc:
+  * src/main/bedrock/javascript/main.js:
+  - Validation check for SCRIPT_PATH 
+  - Fixed a error opens build script as blank file.
+  - Added tooltips for various icons.
+
+2017-01-24 Senni Shanmugam <SShanmugam@signatureinfo.com>
+  * src/main/bedrock/javascript/main.js:
+  - Validation check for BUILD_SCRIPT
+
 2016-12-12  Rob Lauer	<rlauer6@comcast.net>
