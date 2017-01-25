@@ -50,6 +50,9 @@ dist_javascript_DATA = \
     mode-text.js \
     mode-xml.js \
     theme-chrome.js \
+    theme-eclipse.js \
+    theme-solarized_dark.js \
+    theme-xcode.js \
     worker-bedrock.js \
     worker-css.js \
     worker-html.js \
