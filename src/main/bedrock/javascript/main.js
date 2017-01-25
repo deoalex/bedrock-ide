@@ -200,12 +200,11 @@ $(document).ready(function() {
 
   function toggle_stream(on) {
     var button = $('.run-build');
-    if (on)
-      button.css('pointer-events', 'auto');
-      /*button.removeClass('disabled loading');*/
-    else {
-      button.css('pointer-events', 'none');
-      /*button.addClass('disabled loading');*/
+    if (on) {      
+      button.removeClass("disabled loading");
+    }
+    else {      
+      button.addClass("disabled loading");
       $('.build-stream').empty();
       $('.build-stream').css("display", "flex");
     }

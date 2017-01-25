@@ -46,12 +46,14 @@
 
     <div class="ui masthead vertical segment">
       <div class="ui container">
-        <a class="popup icon item bedrock-settings" data-content="settings">
+
+        <button class="ui tiny icon circular blue bedrock-settings button" data-content="settings">
           <i class="settings large icon"></i>
-        </a>
-        <a class="popup icon item run-build" data-content="build">
+        </button>
+
+        <button class="ui tiny icon circular blue run-build button" data-content="build">
           <i class="legal large icon"></i>
-        </a>
+        </button>
 
         <div class="introduction">
           <h1 class="ui header">
