@@ -1,4 +1,15 @@
 2017-01-25 Senni Shanmugam <SShanmugam@signatureinfo.com>
+  * src/main/bedrock/javascript/theme-eclipse.js: new
+  * src/main/bedrock/javascript/theme-solarized_dark.js: new
+  * src/main/bedrock/javascript/theme-xcode.js: new
+  * src/main/bedrock/javascript/Makefile.am:
+  - Added above.
+  * src/main/bedrock/htdocs/index.roc:
+  * src/main/bedrock/javascript/main.js:
+  - Added themes for eclipse, solarized_dark and xcode.
+  - Added dropdown in menu which provides option to pick desired theme listed.
+  
+2017-01-25 Senni Shanmugam <SShanmugam@signatureinfo.com>
   * src/main/bedrock/javascript/main.js:
   - Added different modes for files with corresponding extension.
 

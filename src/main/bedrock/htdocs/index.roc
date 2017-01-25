@@ -97,18 +97,27 @@
           </div><!-- .bedrock-help-app-plugins -->
         </div><!-- .segment -->
       </div><!-- .rail -->
-
-      <div class="ui left floated main tiny menu file-menu">
-        <a class="popup icon item save-file" data-content="save">
-          <i class="save icon"></i>
-        </a>
-      </div>  
-
-      <div class="ui right floated main tiny menu file-menu">    
-        <a class="popup icon item run-file" data-content="run">
-          <i class="caret right icon"></i>
-        </a>
-      </div>
+      
+      <div class="ui menu file-menu">
+        <div class="ui floating dropdown labeled search icon button themes-dropdown">
+          <i class="theme icon"></i>
+          <span class="text">Select Theme</span>
+          <div class="menu themes-menu">
+            <div class="item">Chrome</div>
+            <div class="item">Eclipse</div>
+            <div class="item">Solarized_dark</div>
+            <div class="item">Xcode</div>
+          </div>
+        </div>      
+        <div class="right menu">
+          <a class="popup icon item save-file" data-content="save">
+            <i class="save icon"></i>
+          </a>
+          <a class="popup icon item run-file" data-content="run">
+            <i class="caret right icon"></i>
+          </a>
+        </div>
+      </div><!-- /.ui.menu -->
 
       <div class="ui message bedrock-status-info"></div>
 
