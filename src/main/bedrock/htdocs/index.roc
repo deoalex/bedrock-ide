@@ -110,8 +110,16 @@
             <div class="item">Solarized_dark</div>
             <div class="item">Xcode</div>
           </div>
-        </div>      
+        </div>             
         <div class="right menu">
+          <div class="ui floating dropdown labeled search icon basic button keybindings-dropdown" style="margin-right: 0px;">
+            <i class="keyboard icon"></i>
+            <span class="text">Select Key Binding</span>
+            <div class="menu keybindings-menu">
+              <div class="item">Vim</div>
+              <div class="item">Emacs</div>
+            </div>
+          </div>  
           <a class="popup icon item save-file" data-content="save">
             <i class="save icon"></i>
           </a>

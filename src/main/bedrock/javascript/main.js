@@ -42,8 +42,7 @@ $(document).ready(function() {
     $("#tab_cnt").val(parseInt($("#tab_cnt").val()) + 1);
     if ($(".file_list_tab").size() == "0") {
       var file_list_tab = $("<div>").addClass("ui top attached tabular menu file_list_tab");
-      $(file_list_tab).appendTo(".main_tab_div");
-      $(".themes-dropdown").dropdown("set selected", "Chrome");
+      $(file_list_tab).appendTo(".main_tab_div");      
     }
     var tab_link = $("<a>").addClass("item active").attr("data-tab", "tab-item" + $("#tab_cnt").val()).html(file_name);
     var close_link = $("<i>").addClass("close icon link close-tab");
@@ -72,8 +71,16 @@ $(document).ready(function() {
     });
 
     ace.require("ace/ext/language_tools");
-    var editor = ace.edit("editor" + $("#tab_cnt").val());  
-    editor.setTheme("ace/theme/" + $(".themes-dropdown").dropdown("get value"));
+    var editor = ace.edit("editor" + $("#tab_cnt").val());
+    if($(".themes-dropdown").dropdown("get value") != "") { 
+      editor.setTheme("ace/theme/" + $(".themes-dropdown").dropdown("get value"));
+    }
+    else {
+      editor.setTheme("ace/theme/chrome");
+    }
+    if ($(".keybindings-dropdown").dropdown("get value") != "") {
+      editor.setKeyboardHandler("ace/keyboard/" + $(".keybindings-dropdown").dropdown("get value"));
+    }
     if (file_type == "file") {
       var extension = file_name.substr((file_name.lastIndexOf('.') +1));
       if((extension == "roc") || (extension =="rock")) {
@@ -138,11 +145,12 @@ $(document).ready(function() {
     });
 
     editor.commands.addCommand({
-      name: "closeCommand",
-      bindKey: {win: "Ctrl-X",  mac: "Cmd-X"},
+      name: "buildCommand",
+      bindKey: {win: "Ctrl-B",  mac: "Cmd-B"},
       exec: function(editor) {
-        $(".file_list_tab a.item.active i.close-tab").trigger("click");
-      }
+        $(".run-build").trigger("click");
+      },
+      readOnly: false
     });
 
     update_recently_viewed(file_name, file_type);
@@ -733,7 +741,7 @@ $(document).ready(function() {
 
   $(".chk_attr").checkbox();
 
-  $(".popup").popup({
+  $(".popup, .bedrock-settings, .run-build").popup({
     position : "bottom center",
     hoverable  : true,
     inline     : true
@@ -773,7 +781,24 @@ $(document).ready(function() {
       $("div.tab").find(".editor").each(function() {
         var editor = ace.edit($(this).attr("id"));
         editor.setTheme("ace/theme/" + val);
-      });     
+      });
+      var current_id = $("div.tab.active").find(".editor").attr("id");
+      var current_editor = ace.edit(current_id);
+      current_editor.gotoLine(1);
+      current_editor.focus();
+    }
+  });
+
+  $(".keybindings-dropdown").dropdown({
+    onChange: function(val,text) {
+      $("div.tab").find(".editor").each(function() {
+        var editor = ace.edit($(this).attr("id"));
+        editor.setKeyboardHandler("ace/keyboard/" + val);
+      });
+      var current_id = $("div.tab.active").find(".editor").attr("id");
+      var current_editor = ace.edit(current_id);
+      current_editor.gotoLine(1);
+      current_editor.focus();
     }
   });
 
