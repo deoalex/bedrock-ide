@@ -1590,17 +1590,17 @@ var bedrockHighlightRules = function() {
         ],
         bedrock_tag : [
             {
-                token : function(start, tag) {
-                    return bedrock_tag_start(start, tag);
-                },
-                regex : "(</?)("+bTagRegex+")",
-                push: "bedrock_tag_contents"
-            },
-            {
                 token : function(start, tag, varName) {
                     return bedrock_tag_start(start, tag, varName);
                 },
                 regex : "(</?)("+bTagRegex+")(:[a-zA-Z_$\x7f-\uffff][a-zA-Z0-9_\x7f-\uffff]*)",
+                push: "bedrock_tag_contents"
+            },
+            {
+                token : function(start, tag) {
+                    return bedrock_tag_start(start, tag);
+                },
+                regex : "(</?)("+bTagRegex+")",
                 push: "bedrock_tag_contents"
             },
         ],
