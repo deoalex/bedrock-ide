@@ -1,9 +1,16 @@
+2017-01-27 Senni Shanmugam <SShanmugam@signatureinfo.com>
+  * src/main/bedrock/css/main.css
+  * src/main/bedrock/htdocs/index.roc:
+  * src/main/bedrock/javascript/main.js:
+  - Added segments to main div.
+  - Made layout related changes.
+  
 2017-01-26 Senni Shanmugam <SShanmugam@signatureinfo.com>
   * src/main/bedrock/htdocs/index.roc:
   * src/main/bedrock/javascript/main.js:
   - Added keybindings dropdown to pick emacs and vim.
   - Added ctrl+B, cmd+B for run a build script.
-  
+
 2017-01-25 Senni Shanmugam <SShanmugam@signatureinfo.com>
   * src/main/bedrock/htdocs/index.roc:
   * src/main/bedrock/javascript/main.js:

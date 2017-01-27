@@ -153,6 +153,15 @@ $(document).ready(function() {
       readOnly: false
     });
 
+    editor.commands.addCommand({
+      name: "runCommand",
+      bindKey: {win: "Ctrl-O",  mac: "Cmd-O"},
+      exec: function(editor) {
+        $(".run-file").trigger("click");
+      },
+      readOnly: false
+    });
+
     update_recently_viewed(file_name, file_type);
 
     editor.setValue(data);
@@ -583,7 +592,7 @@ $(document).ready(function() {
       data: data_value,
       success: function(data) {
         if ( data.status == "success" ) {
-          $(".main_tab_div, .file-menu").show();                 
+          $(".outer-segment, .file-menu-segment").show();
           if (file_type == "file") {
             $(".file-list-header").next(".files-list").remove();
             get_files_list(false);
@@ -755,7 +764,7 @@ $(document).ready(function() {
     blurring: true
   });
 
-  $(".main_tab_div, .file-menu").hide();
+  $(".outer-segment, .file-menu-segment").hide();
 
   //initial files & folder load
   get_files_list(false);
@@ -817,14 +826,14 @@ $(document).ready(function() {
   $(document).on("click", ".load-file", function(e) {
     e.stopPropagation();
     var file_name = $(this).data("file-uri");
-    $(".main_tab_div, .file-menu").show();
+    $(".outer-segment, .file-menu-segment").show();
     get_file_content(file_name, "file");    
   });
 
   $(document).on("click", ".load-plugin", function(e) {
     e.stopPropagation();
     var file_name = $(this).data("file-uri");
-    $(".main_tab_div, .file-menu").show();
+    $(".outer-segment, .file-menu-segment").show();
     get_file_content(file_name, "plugin");    
   });
 
@@ -871,7 +880,7 @@ $(document).ready(function() {
       $(".file_list_tab a:first").click();
       if($(".file_list_tab a").size() == "0") {
         $(".file_list_tab").remove();
-        $(".main_tab_div, .file-menu").hide();
+        $(".outer-segment, .file-menu-segment").hide();
         $("#cursorDetails, #fileLength").html("");
       }
     }
@@ -964,6 +973,8 @@ $(document).ready(function() {
     if(msg == "") {
       toggle_stream(false);
       build_project();
+      var scrollBottom = $(window).scrollTop() + $(window).height();
+      $("html, body").animate({ scrollTop: scrollBottom }, 500);
     }
     else {
       alert("Please set up the following variables in Settings:\n\n" + msg);
@@ -1205,7 +1216,7 @@ $(document).ready(function() {
     if(msg == "") {
       save_config();
       get_build_script();
-      $(".main_tab_div, .file-menu").show();
+      $(".outer-segment, .file-menu-segment").show();
     }
     else {
       alert("Please set up the following:\n\n" + msg);

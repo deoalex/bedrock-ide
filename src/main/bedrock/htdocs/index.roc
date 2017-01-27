@@ -26,6 +26,9 @@
         <img src="img/bedrock_logo.png" alt="bedrock image" class="bedrock-logo">
       </a>
     </div>
+    <div class="recent-div">
+      <div class="header recent-list-header">Recently Viewed Files<i class="caret down icon show-recent-files"></i><i class="caret up icon hide-recent-files"></i></div>
+    </div>
     <div class="files-div">
       <div class="header file-list-header">Files<i class="plus icon link new-file" title="new file"></i></div>
     </div>
@@ -43,26 +46,18 @@
   <!-- pusher -->
 
   <div class="pusher">
-
     <div class="ui masthead vertical segment">
       <div class="ui container">
-
         <button class="ui tiny icon circular blue bedrock-settings button" data-content="settings">
           <i class="settings large icon"></i>
         </button>
-
-        <button class="ui tiny icon circular blue run-build button" data-content="build">
-          <i class="legal large icon"></i>
-        </button>
-
         <div class="introduction">
           <h1 class="ui header">
             Bedrock IDE           
           </h1>         
         </div>      
       </div>
-    </div> 
-
+    </div><!-- /.ui masthead vertical segment -->
     <div class="main ui container">
       <div class="ui right dividing rail right-side-rail">
         <div class="ui basic segment no-padding-left">        
@@ -98,9 +93,8 @@
             </div><!-- .item -->
           </div><!-- .bedrock-help-app-plugins -->
         </div><!-- .segment -->
-      </div><!-- .rail -->
-      
-      <div class="ui menu file-menu">
+      </div><!-- .rail -->           
+      <div class="ui menu file-menu file-menu-segment">
         <div class="ui floating dropdown labeled search icon button themes-dropdown">
           <i class="theme icon"></i>
           <span class="text">Select Theme</span>
@@ -123,29 +117,32 @@
           <a class="popup icon item save-file" data-content="save">
             <i class="save icon"></i>
           </a>
+          <a class="popup icon item run-build" data-content="build">
+            <i class="legal icon"></i>
+          </a>
           <a class="popup icon item run-file" data-content="run">
             <i class="caret right icon"></i>
           </a>
         </div>
-      </div><!-- /.ui.menu -->
-
-      <div class="ui message bedrock-status-info"></div>
-
-      <div class="main_tab_div">
-        <input type="hidden" id="tab_cnt" name="tab_cnt" value="0">  
-      </div>
-
-      <div class="ui basic segment main-file-content">
-        <div id="cursorDetails" class="ui basic segment"></div>
-        <div id="fileLength" class="ui basic right floated"></div>
-      </div>
-
-      <div class="ui basic segment">
-        <pre class="build-stream"></pre>
-      </div>
-
+      </div><!-- /.ui.menu -->      
+      <div class="ui segments outer-segment">        
+        <div class="ui top attached secondary segment ace-editor-segment">
+          <div class="ui message bedrock-status-info"></div>
+          <div class="main_tab_div">
+            <input type="hidden" id="tab_cnt" name="tab_cnt" value="0">  
+          </div>
+        </div><!-- /.ui top attached -->
+        <div class="ui attached secondary segment main-file-content-segment">
+          <div class="main-file-content">
+            <div id="cursorDetails"></div>
+            <div id="fileLength" class="ui basic right floated"></div>
+          </div>
+        </div><!-- /.ui attached -->
+        <div class="ui bottom attached segment build-stream-segment">
+          <pre class="build-stream"></pre>
+        </div><!-- /.ui bottom attached -->
+      </div><!-- /.ui segments -->
     </div><!-- .main .ui .container -->
-
   </div><!-- .pusher -->
 
   <div class="ui large long modal bedrock-help-modal">
