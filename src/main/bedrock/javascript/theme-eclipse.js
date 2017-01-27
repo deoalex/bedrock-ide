@@ -50,7 +50,7 @@ color: rgb(127, 159, 191);\
 .ace-eclipse .ace_constant.ace_numeric {\
 color: darkblue;\
 }\
-.ace-eclipse .ace_tag {\
+.ace-eclipse .ace_meta.ace_tag {\
 color: rgb(25, 118, 116);\
 }\
 .ace-eclipse .ace_type {\

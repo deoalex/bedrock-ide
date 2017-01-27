@@ -1532,10 +1532,9 @@ var bTagMap = lang.createMap({
 });
 
 function bedrock_tag_start(start, tag, varName) {
-    var group = bTagMap[tag];
     var classes = [];
     classes.push("bedrock.tag.punctuation." + (start == "<" ? "" : "end-") + "tag-open.xml");
-    classes.push("bedrock.tag" + (group ? "." + group : "") + ".tag-name.xml");
+    classes.push("bedrock.tag.tag-name.xml");
     if (varName != null)
         classes.push("bedrock_variable_def");
     return classes;
