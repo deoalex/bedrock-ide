@@ -114,12 +114,17 @@
               <div class="item">Emacs</div>
             </div>
           </div>  
+          <div class="ui dropdown item build-dropdown">
+            build
+            <i class="dropdown icon"></i>
+            <div class="menu">
+              <a class="item run-build"><i class="legal icon"></i> Run</a>
+              <a class="item toggle-build"><i class="unhide icon"></i><i class="hide icon"></i>Toggle</a>
+            </div>
+          </div>  
           <a class="popup icon item save-file" data-content="save">
             <i class="save icon"></i>
-          </a>
-          <a class="popup icon item run-build" data-content="build">
-            <i class="legal icon"></i>
-          </a>
+          </a>          
           <a class="popup icon item run-file" data-content="run">
             <i class="caret right icon"></i>
           </a>

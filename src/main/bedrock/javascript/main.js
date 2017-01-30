@@ -750,7 +750,7 @@ $(document).ready(function() {
 
   $(".chk_attr").checkbox();
 
-  $(".popup, .bedrock-settings, .run-build").popup({
+  $(".popup, .bedrock-settings").popup({
     position : "bottom center",
     hoverable  : true,
     inline     : true
@@ -810,6 +810,8 @@ $(document).ready(function() {
       current_editor.focus();
     }
   });
+
+  $(".build-dropdown").dropdown();
 
   $(".hide-sidebar-btn").click(function() {
     if ($("#file_list").hasClass("visible")) {
@@ -973,11 +975,28 @@ $(document).ready(function() {
     if(msg == "") {
       toggle_stream(false);
       build_project();
+      if (!$(".build-stream-segment").is(":visible")) {
+        $(".toggle-build").trigger("click");
+      }
       var scrollBottom = $(window).scrollTop() + $(window).height();
       $("html, body").animate({ scrollTop: scrollBottom }, 500);
     }
     else {
       alert("Please set up the following variables in Settings:\n\n" + msg);
+    }
+  });
+
+  $(".unhide").hide();
+
+  $(document).on("click", ".toggle-build", function() {
+    $(".build-stream-segment").toggle();
+    if ($(".build-stream-segment").is(":visible")) {
+      $(".unhide").hide();
+      $(".hide").show();
+    }
+    else {
+      $(".unhide").show();
+      $(".hide").hide();
     }
   });
 
