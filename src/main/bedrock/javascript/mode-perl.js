@@ -48,7 +48,7 @@ var PerlHighlightRules = function() {
         "start" : [
             {
                 token : "comment.doc",
-                regex : "^=(?:begin|item)\\b",
+                regex : "^=(?:begin|pod|item)\\b",
                 next : "block_comment"
             }, {
                 token : "string.regexp",
@@ -324,7 +324,7 @@ var Mode = function() {
     this.HighlightRules = PerlHighlightRules;
     
     this.$outdent = new MatchingBraceOutdent();
-    this.foldingRules = new CStyleFoldMode({start: "^=(begin|item)\\b", end: "^=(cut)\\b"});
+    this.foldingRules = new CStyleFoldMode({start: "^=(begin|item|pod)", end: "^=(cut)"});
     this.$behaviour = this.$defaultBehaviour;
 };
 oop.inherits(Mode, TextMode);
@@ -334,6 +334,7 @@ oop.inherits(Mode, TextMode);
     this.lineCommentStart = "#";
     this.blockComment = [
         {start: "=begin", end: "=cut", lineStartOnly: true},
+        {start: "=pod", end: "=cut", lineStartOnly: true},
         {start: "=item", end: "=cut", lineStartOnly: true}
     ];
 
