@@ -2839,10 +2839,23 @@ Tokenizer.prototype.tokenize = function(source) {
             tokenizer.setState(data_state);
             shouldEmit = true;
         } else if (isAlphaNumeric(data) || data === '-' || data === '_') {
-            tokenizer._currentAttribute().name += data.toLowerCase();
+            if (!tokenizer._currentAttribute().name)
+                tokenizer._currentAttribute().name = data.toLowerCase();
+            else
+                tokenizer._currentAttribute().name += data.toLowerCase();
             leavingThisState = false;
         } else if (data === '>') {
             shouldEmit = true;
+        } else if (data === ':') {
+            if (tokenizer._currentAttribute().name
+             && tokenizer._currentAttribute().name.match(/^(hash|array)$/)) {
+                tokenizer._currentAttribute().name += data.toLowerCase();
+                tokenizer.setState(bedrock_object_name_state);
+            } else {
+                tokenizer._parseError("invalid-character-in-object-name", {data: data});
+                tokenizer._currentAttribute().nodeName += data;
+                leavingThisState = false;
+            }
         } else if (isWhitespace(data)) {
             tokenizer.setState(before_bedrock_content_state);
         } else if (data === '\u0000') {

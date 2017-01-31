@@ -1531,10 +1531,12 @@ var bTagMap = lang.createMap({
     while       : 'loop'
 });
 
-function bedrock_tag_start(start, tag, varName) {
+function bedrock_tag_start(start, tag, varType, varName) {
     var classes = [];
     classes.push("bedrock.tag.punctuation." + (start == "<" ? "" : "end-") + "tag-open.xml");
     classes.push("bedrock.tag.tag-name.xml");
+    if (varType != null)
+        classes.push("bedrock_variable_type");
     if (varName != null)
         classes.push("bedrock_variable_def");
     return classes;
@@ -1590,8 +1592,15 @@ var bedrockHighlightRules = function() {
         ],
         bedrock_tag : [
             {
+                token : function(start, tag, varType, varName) {
+                    return bedrock_tag_start(start, tag, varType, varName);
+                },
+                regex : "(</?)("+bTagRegex+")(:[a-zA-Z_$\x7f-\uffff][a-zA-Z0-9_\x7f-\uffff]*)(:[a-zA-Z_$\x7f-\uffff][a-zA-Z0-9_\x7f-\uffff]*)",
+                push: "bedrock_tag_contents"
+            },
+            {
                 token : function(start, tag, varName) {
-                    return bedrock_tag_start(start, tag, varName);
+                    return bedrock_tag_start(start, tag, null, varName);
                 },
                 regex : "(</?)("+bTagRegex+")(:[a-zA-Z_$\x7f-\uffff][a-zA-Z0-9_\x7f-\uffff]*)",
                 push: "bedrock_tag_contents"
