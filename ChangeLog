@@ -1,9 +1,13 @@
+2017-01-31 Senni Shanmugam <SShanmugam@signatureinfo.com>
+  * src/main/bedrock/css/main.css:
+  - Css style updates.
+  
 2017-01-30 Senni Shanmugam <SShanmugam@signatureinfo.com>
   * src/main/bedrock/css/main.css:
   * src/main/bedrock/htdocs/index.roc:
   * src/main/bedrock/javascript/main.js:
   - Menu item to toggle build area.
-  
+
 2017-01-27 Senni Shanmugam <SShanmugam@signatureinfo.com>
   * src/main/bedrock/css/main.css
   * src/main/bedrock/htdocs/index.roc:
