@@ -1,3 +1,7 @@
+2017-02-02 Senni Shanmugam <SShanmugam@signatureinfo.com>
+  * src/main/bedrock/htdocs/index.roc:
+  - Changed 'Toggle' text to 'Show/Hide'.
+  
 2017-01-31 Senni Shanmugam <SShanmugam@signatureinfo.com>
   * src/main/bedrock/css/main.css:
   - Css style updates.

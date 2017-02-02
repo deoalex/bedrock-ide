@@ -119,7 +119,7 @@
             <i class="dropdown icon"></i>
             <div class="menu">
               <a class="item run-build"><i class="legal icon"></i> Run</a>
-              <a class="item toggle-build"><i class="unhide icon"></i><i class="hide icon"></i>Toggle</a>
+              <a class="item toggle-build"><i class="unhide icon"></i><i class="hide icon"></i>Show/Hide</a>
             </div>
           </div>  
           <a class="popup icon item save-file" data-content="save">
