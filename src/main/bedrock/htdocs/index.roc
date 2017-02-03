@@ -95,7 +95,8 @@
         </div><!-- .segment -->
       </div><!-- .rail -->           
       <div class="ui menu file-menu file-menu-segment">
-        <div class="ui floating dropdown labeled search icon button themes-dropdown">
+        <!--<div class="ui floating dropdown labeled search icon button themes-dropdown">-->
+        <div class="ui floating basic dropdown search labeled icon button themes-dropdown">
           <i class="theme icon"></i>
           <span class="text">Select Theme</span>
           <div class="menu themes-menu">
@@ -104,22 +105,42 @@
             <div class="item">Solarized_dark</div>
             <div class="item">Xcode</div>
           </div>
-        </div>             
-        <div class="right menu">
-          <div class="ui floating dropdown labeled search icon basic button keybindings-dropdown" style="margin-right: 0px;">
+        </div>
+        <!--<div class="ui dropdown labeled search icon button modes-dropdown">-->
+        <div class="ui dropdown basic search labeled icon button modes-dropdown">
+          <i class="crosshairs icon"></i>
+          <span class="text">Select Mode</span>
+          <div class="menu modes-menu">
+            <div class="item" data-text="Bedrock" data-value="bedrock">Bedrock</div>
+            <div class="item" data-text="CSS" data-value="css">CSS</div>
+            <div class="item" data-text="HTML" data-value="html">HTML</div>
+            <div class="item" data-text="Javascript" data-value="javascript">Javascript</div>
+            <div class="item" data-text="Json" data-value="json">Json</div>
+            <div class="item" data-text="Perl" data-value="perl">Perl</div>
+            <div class="item" data-text="Plain Text" data-value="plain_text">Plain Text</div>
+            <div class="item" data-text="Shell" data-value="sh">Shell</div>
+            <div class="item" data-text="Xml" data-value="xml">XML</div>
+          </div>
+        </div>
+        <div class="ui floating dropdown search labeled icon basic button keybindings-dropdown">
             <i class="keyboard icon"></i>
             <span class="text">Select Key Binding</span>
             <div class="menu keybindings-menu">
-              <div class="item">Vim</div>
+              <div class="item">Default</div>
               <div class="item">Emacs</div>
+              <div class="item">Vim</div>              
             </div>
-          </div>  
+          </div>               
+        <div class="right menu">            
           <div class="ui dropdown item build-dropdown">
             build
             <i class="dropdown icon"></i>
             <div class="menu">
               <a class="item run-build"><i class="legal icon"></i> Run</a>
-              <a class="item toggle-build"><i class="unhide icon"></i><i class="hide icon"></i>Show/Hide</a>
+              <a class="item toggle-build">
+                <i class="unhide icon"></i><span class="unhide">Show</span>
+                <i class="hide icon"></i><span class="hide">Hide</span>
+              </a>
             </div>
           </div>  
           <a class="popup icon item save-file" data-content="save">
@@ -171,7 +192,8 @@
     </div>
     <div class="content">
       <div class="ui message modal-status-info"></div>
-      <form id="bedrock_settings_form" name="bedrock_settings_form" class="ui form">
+      <input type="hidden" id="hdn_prject_path" name="hdn_prject_path">
+      <form id="bedrock_settings_form" name="bedrock_settings_form" class="ui form">        
       </form><!-- ui form -->
     </div>
     <div class="actions">

@@ -42,7 +42,7 @@ $(document).ready(function() {
     $("#tab_cnt").val(parseInt($("#tab_cnt").val()) + 1);
     if ($(".file_list_tab").size() == "0") {
       var file_list_tab = $("<div>").addClass("ui top attached tabular menu file_list_tab");
-      $(file_list_tab).appendTo(".main_tab_div");      
+      $(file_list_tab).appendTo(".main_tab_div");            
     }
     var tab_link = $("<a>").addClass("item active").attr("data-tab", "tab-item" + $("#tab_cnt").val()).html(file_name);
     var close_link = $("<i>").addClass("close icon link close-tab");
@@ -55,10 +55,13 @@ $(document).ready(function() {
     var edit = $("<div>").addClass("editor")
                     .attr("id", "editor" + $("#tab_cnt").val())
                     .attr("data-file-name", file_name)
-                    .attr("data-file-type", file_type);
+                    .attr("data-file-type", file_type)
+                    .attr("data-user-mode", "");
     $(edit).appendTo(tab_segment);
 
     $(tab_segment).appendTo(".main_tab_div");
+
+    $(".modes-dropdown").dropdown("restore defaults");
 
     $(".file_list_tab .item").tab({
       onVisible: function() {
@@ -66,6 +69,12 @@ $(document).ready(function() {
         $(".bedrock-status-info").removeClass("success error").html("").hide();
         var id = $(this).find(".editor").attr("id");
         var current = ace.edit(id);
+        if ($("#" + id).attr("data-user-mode") != "") {
+          $(".modes-dropdown").dropdown("set selected", $("#" + id).attr("data-user-mode"));
+        }
+        else {
+          $(".modes-dropdown").dropdown("restore defaults");
+        }
         current.focus();
       }
     });
@@ -79,7 +88,13 @@ $(document).ready(function() {
       editor.setTheme("ace/theme/chrome");
     }
     if ($(".keybindings-dropdown").dropdown("get value") != "") {
-      editor.setKeyboardHandler("ace/keyboard/" + $(".keybindings-dropdown").dropdown("get value"));
+      var text = $(".keybindings-dropdown").dropdown("get value");
+      if (text == "default") {
+          editor.setKeyboardHandler();
+        }
+      else {
+        editor.setKeyboardHandler("ace/keyboard/" + $(".keybindings-dropdown").dropdown("get value"));
+      }
     }
     if (file_type == "file") {
       var extension = file_name.substr((file_name.lastIndexOf('.') +1));
@@ -103,6 +118,16 @@ $(document).ready(function() {
       }      
       else if (extension == "xml") {
         editor.getSession().setMode("ace/mode/xml");
+      }
+      else if (extension == "in") {
+        var name_arr = file_name.split(".");
+        var check_pl = name_arr[name_arr.length - 2];
+        if (check_pl == "pl") {
+          editor.getSession().setMode("ace/mode/perl");
+        }
+        else {
+          editor.getSession().setMode("ace/mode/plain_text");
+        }
       }
       else {
         editor.getSession().setMode("ace/mode/plain_text");
@@ -162,7 +187,9 @@ $(document).ready(function() {
       readOnly: false
     });
 
-    update_recently_viewed(file_name, file_type);
+    if(!check_file_already_exists(file_name)) {
+      update_recently_viewed(file_name, file_type);
+    }
 
     editor.setValue(data);
     $("body").animate({ scrollTop: "0px" }, 500);
@@ -396,6 +423,16 @@ $(document).ready(function() {
     });
   }
 
+  function check_file_already_exists(file_name) {
+    var found = false;
+    $(".recently-viewed-list a.item").each(function() { 
+      if($(this).html() == file_name) {
+        found = true;
+      }
+    });
+    return found;
+  }
+
   function update_recently_viewed(file_name, file_type) {
     var item; 
     var list;
@@ -474,6 +511,8 @@ $(document).ready(function() {
           var field = $("#BUILD_SCRIPT").parent("div.field");
           $(edit_script_icon).appendTo(field);
 
+          $("#hdn_prject_path").val($("#PROJECT_PATH").val());
+
           $(".bedrock-settings-modal").modal("refresh");
         }
         else {
@@ -516,6 +555,8 @@ $(document).ready(function() {
           var field = $("#BUILD_SCRIPT").parent("div.field");
           $(edit_script_icon).appendTo(field);
 
+          $("#hdn_prject_path").val($("#PROJECT_PATH").val());
+
           $(".bedrock-settings-modal").modal("refresh");
           $(".add_edit_script").popup({
             hoverable  : true,
@@ -553,7 +594,15 @@ $(document).ready(function() {
           var plugins_div = $(".plugins-div");
           plugins_div.find(".plugins-list").remove();
           get_files_list(false); 
-          get_plugins_list();           
+          get_plugins_list();
+          if($("#hdn_prject_path").val() != $("#PROJECT_PATH").val()) {
+            $(".recently-viewed-list").remove();
+            $("i.show-recent-files").show();
+            $("i.hide-recent-files, .recent-div").hide();
+            $(".file_list_tab").remove();
+            $(".outer-segment, .file-menu-segment").hide();
+            $("#cursorDetails, #fileLength").html("");
+          }        
         }
         else {
           modal_status_message_set("error", data.message);             
@@ -793,20 +842,35 @@ $(document).ready(function() {
       });
       var current_id = $("div.tab.active").find(".editor").attr("id");
       var current_editor = ace.edit(current_id);
-      current_editor.gotoLine(1);
       current_editor.focus();
     }
   });
 
-  $(".keybindings-dropdown").dropdown({
+  $(".modes-dropdown").dropdown({
     onChange: function(val,text) {
+      if (val != "") {
+        var current_id = $("div.tab.active").find(".editor").attr("id");
+        $("#" + current_id).attr("data-user-mode", val);
+        var current_editor = ace.edit(current_id);
+        current_editor.getSession().setMode("ace/mode/" + val);
+        current_editor.focus();
+      }
+    }
+  });
+
+  $(".keybindings-dropdown").dropdown({
+    onChange: function(val,text) {      
       $("div.tab").find(".editor").each(function() {
         var editor = ace.edit($(this).attr("id"));
-        editor.setKeyboardHandler("ace/keyboard/" + val);
+        if (text == "Default") {
+          editor.setKeyboardHandler();
+        }
+        else {
+          editor.setKeyboardHandler("ace/keyboard/" + val);
+        }
       });
       var current_id = $("div.tab.active").find(".editor").attr("id");
       var current_editor = ace.edit(current_id);
-      current_editor.gotoLine(1);
       current_editor.focus();
     }
   });
@@ -1078,7 +1142,15 @@ $(document).ready(function() {
 
   $(".submit-settings-modal").click(function() {
     $(".bedrock-settings-status").html("");
-    save_config();
+    var flag = true;
+    if($("#hdn_prject_path").val() != $("#PROJECT_PATH").val()) {
+      if ( !confirm("Changing the prject path before save might lose some of your work, Do you want to continue?") ) {
+        flag = false;
+      }
+    }
+    if( flag == true) {
+      save_config();
+    }
   });
 
   //new file
