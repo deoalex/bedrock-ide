@@ -122,7 +122,7 @@ $(document).ready(function() {
       else if (extension == "in") {
         var name_arr = file_name.split(".");
         var check_pl = name_arr[name_arr.length - 2];
-        if (check_pl == "pl") {
+        if ((check_pl == "pl") || (check_pl == "pm") || (check_pl == "cgi")){
           editor.getSession().setMode("ace/mode/perl");
         }
         else {

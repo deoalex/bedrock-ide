@@ -1,4 +1,8 @@
 2017-02-03 Senni Shanmugam <SShanmugam@signatureinfo.com>
+  * src/main/bedrock/javascript/main.js:
+  - Added additional extensions for modes: pm and cgi
+
+2017-02-03 Senni Shanmugam <SShanmugam@signatureinfo.com>
   * src/main/bedrock/htdocs/index.roc:
   * src/main/bedrock/javascript/main.js:
   - This commit includes the following:
