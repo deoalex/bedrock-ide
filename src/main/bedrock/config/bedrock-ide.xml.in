@@ -19,7 +19,7 @@
     <scalar name="HOST_NAME"></scalar>
     <scalar name="INDEX_PAGE">index.roc</scalar>
     <scalar name="PROJECT_PATH"></scalar>
-    <scalar name="BUILD_SCRIPT">build.sh</scalar>
+    <scalar name="BUILD_SCRIPT"></scalar>
     <scalar name="SCRIPT_PATH"></scalar>
   </object>
 </object>
