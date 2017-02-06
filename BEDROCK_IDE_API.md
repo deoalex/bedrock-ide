@@ -125,7 +125,7 @@ to the `DOCUMENT_ROOT` defined in the Bedrock IDE configuration file.*
 
 ### /file
 
-*Create, update, delete, a file*
+*Create, update, delete, rename, a file*
 
 `GET /file/{path}`
 
@@ -145,6 +145,40 @@ $ curl -s -o index.roc http://localhost:8080/file/index.roc
 
 ```
 $ curl -s -X POST -H 'Content-type: text/plain' --data-binary @index.roc http://localhost:8080/file/index.roc 
+```
+
+`PUT /file/{path}`
+
+*Rename the file*
+
+**curl Example:**
+
+```
+$ curl -s -X PUT --data "action=rename&newname=renamed_file.roc" http://localhost:8080/file/original_file.roc
+```
+
+**jQuery (AJAX) example:**
+
+```
+$.ajax({
+  url: '/bedrock-ide/api/file/original_file.roc',
+  method: 'PUT',
+  contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+  data: {
+    action: 'rename',
+    newname: 'renamed_file.roc'
+  },
+  success: function(data) {
+    var message = data.message;
+    if ( data.status == "success" ) {
+       alert("woohoo, you roc(k)!");
+    }
+    else {
+       alert("you have an error: " + message.error);
+       alert("lines in error: " + message.lines.join(","));
+    }
+  }
+});
 ```
 
 `DELETE /file/{path}`
