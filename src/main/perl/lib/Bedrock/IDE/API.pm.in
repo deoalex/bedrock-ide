@@ -10,6 +10,7 @@ use Bedrock::IDE::Docs;
 use Bedrock::IDE::Trapper;
 
 use Data::Dumper;
+use File::Basename;
 use File::Copy;
 use Log::Log4perl;
 use Scalar::Util qw/reftype/;
@@ -33,7 +34,7 @@ my %DISPATCH = (
 		# /file
 		'GET'   . ' ' . '/file'   => \&get_file,
 		'POST'  . ' ' . '/file'   => \&post_file,
-		'PUT'   . ' ' . '/file'   => \&post_file,
+		'PUT'   . ' ' . '/file'   => \&put_file,
 		'DELETE'. ' ' . '/file'   => \&delete_file,
 
 		# /config
@@ -763,6 +764,44 @@ sub _get_file {
   };
     
   return _set_result($@ ? undef : $text, $@);
+}
+
+# PUT /file
+sub put_file {
+  my $self = shift;
+
+  my $cgi = $self->cgi;
+  my $path = $self->path;
+  my $action = $cgi->param('action');
+  my $new_name = $cgi->param('newname');
+  my $logger = Log::Log4perl::get_logger();
+  my $message;
+
+  # This is a file edit use the post sub instead
+  return $self->post_file() if (lc $action ne 'rename');
+
+  my $PROJECT_PATH = $CONFIG->{PROJECT_PATH} || $CONFIG->{DOCUMENT_ROOT};
+  $path =~s/^\/file//;
+  my $old_file = $PROJECT_PATH . $path;
+
+  my ($old_name, $fullpath, $suffix) = fileparse($old_file);
+  my $new_file = $fullpath . $new_name;
+
+  if (-e $new_file) {
+    $message = "Cannot rename file, '$new_file' already exists.";
+    $logger->debug($message);
+    return _set_result(undef, $message);
+  }
+
+  $logger->debug("Renaming '$old_file' to '$new_file'");
+  
+  if (move($old_file, $new_file) && -f $new_file) {
+    return _set_result($new_name, "Successfully renamed.");
+  }
+
+  $message = "Could not rename '$old_file' to '$new_file'";
+  $logger->debug($message);
+  return _set_result(undef, $message);
 }
 
 # POST /file
